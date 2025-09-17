@@ -28,14 +28,16 @@ class G1_Stand(NLP_MuJoCo):
             self.quadratic_cost,
             idx_joint_pos,
             self.x_0[idx_joint_pos],
-            0.1,
+            1.,
             )
         
         self.add_state_cost(
-            "joint_pos",
+            "height",
             self.quadratic_cost,
             2,
             self.x_0[2],
             100.,
             terminal=True
             )
+        
+        
