@@ -13,11 +13,11 @@ class CEM(SamplingBasedSolver):
                  N_samples: int = 100,
                  elite_frac: float = 0.1,
                  alpha_mean: float = 0.8,
-                 alpha_cov: float = 0.02,
+                 alpha_cov: float = 0.3,
                  seed: int = 0):
         super().__init__(nlp, N_samples, seed)
         self.elite_frac = elite_frac
-        self.N_elite = int(self.elite_frac * self.N_samples)
+        self.N_elite = int(self.elite_frac * self.Nsamples)
         self.alpha_mean = alpha_mean
         self.alpha_cov = alpha_cov
 
@@ -49,4 +49,4 @@ class CEM(SamplingBasedSolver):
         )
         state = self.update_min_cost(state, min_cost)
 
-        return state, min_cost, best_control
+        return state, costs, best_control

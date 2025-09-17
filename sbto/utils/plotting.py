@@ -110,21 +110,37 @@ def plot_state_control(
 
     plt.show()
 
-def plot_cost(costs: Array, title: str = "Cost over Iterations"):
+def plot_costs(all_costs: Array, title: str = "Cost Distribution over Iterations"):
     """
-    Plot the cost over optimization iterations.
+    Plot the distribution of costs over optimization iterations.
 
     Args:
-        costs (Array): Array of costs at each iteration.
+        all_costs (Array): Array of shape [Nit, N_samples] with
+                           all sample costs at each iteration.
         title (str): Title for the plot.
     """
-    costs = np.asarray(costs)
-    plt.figure(figsize=(8, 4))
-    plt.plot(np.arange(costs.shape[0]), costs, marker='o')
+    all_costs = np.asarray(all_costs)
+    Nit = all_costs.shape[0]
+
+    plt.figure(figsize=(10, 5))
+
+    # Boxplot per iteration
+    plt.violinplot(
+        all_costs.T,  # boxplot expects shape [N_samples, Nit]
+        positions=np.arange(Nit),
+        showmeans=True,
+        showextrema=False,
+    )
+
+    # Overlay min cost curves
+    min_cost = np.min(all_costs, axis=1)
+    plt.plot(np.arange(Nit), min_cost, "o-", label="Min", color="tab:blue")
+
     plt.xlabel("Iteration")
     plt.ylabel("Cost")
+    plt.yscale("log")
     plt.title(title)
-    plt.grid(True)
+    plt.grid(True, linestyle="--", alpha=0.6)
+    plt.legend()
     plt.tight_layout()
     plt.show()
-    

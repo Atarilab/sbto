@@ -30,7 +30,7 @@ class SamplingBasedSolver(ABC):
                  N_samples: int = 100,
                  seed : int = 0):
         self.nlp = nlp
-        self.N_samples = N_samples
+        self.Nsamples = N_samples
         self.seed = np.array([seed])
         self.rng = np.random.default_rng(self.seed)
 
@@ -63,7 +63,7 @@ class SamplingBasedSolver(ABC):
         noise = self.rng.multivariate_normal(
             mean=state.mean,
             cov=state.cov,
-            size=(self.N_samples,),
+            size=(self.Nsamples,),
             check_valid="ignore",
             method="cholesky"
         )
@@ -72,7 +72,7 @@ class SamplingBasedSolver(ABC):
     def solve(self,
               state: SolverState,
               Nit: int = 100,
-              ) -> SolverState:
+              ) -> Tuple[SolverState, Array, float, Array]:
         """
         Solve the optimization problem.
         
@@ -82,28 +82,34 @@ class SamplingBasedSolver(ABC):
         
         Returns:
             SolverState: Final state after optimization.
+            Array: Best control knots
+            float: Cost of best control
+            Array: All costs of all iterations [Nit, Nsamples]
         """
         states = []
         min_cost_all = np.inf
+        all_costs = np.empty((Nit, self.Nsamples))
         best_u_all = None
         pbar = trange(Nit, desc="Optimizing", leave=True)
 
         start = time.time()
-        for _ in pbar:
+        for it in pbar:
             eps, state = self.sample(state)
-            state, min_cost, best_u = self.update(state, eps)
+            state, costs, best_u = self.update(state, eps)
             states.append(state)
-
-            if min_cost < min_cost_all:
-                min_cost_all = min_cost
+            
+            if state.min_cost_all < min_cost_all:
+                min_cost_all = state.min_cost_all
                 best_u_all = best_u
+            all_costs[it, :] = costs
 
             pbar.set_postfix(best_cost=min_cost_all)
 
         end = time.time()
         duration = end - start
         print(f"Solving time: {duration:.2f}s")
-        return states, min_cost_all, best_u_all
+
+        return states, best_u_all, min_cost_all, all_costs 
     
     def evaluate(self, u_traj: Array) -> Tuple[Array, Array, Array, float]:
         """
