@@ -90,24 +90,35 @@ class NLPBase(ABC):
         elif arr.shape == (T, I):
             return arr
         else:
-            raise ValueError(
-                f"{name} must have shape (I,), (T,), or (T, I), "
-                f"but got {arr.shape} (T={T}, I={I})"
-            )
+            if T == 1:
+                raise ValueError(
+                    f"{name} must have shape (I,) "
+                    f"but got {arr.shape} (T={T}, I={I})"
+                )
+            else:
+                raise ValueError(
+                    f"{name} must have shape (I,), (T-1,), or (T-1, I), "
+                    f"but got {arr.shape} (T-1={T}, I={I})"
+                )
         
     @staticmethod
     def _get_terminal_values(
         arr: Union[Array, float],
+        I: int,
         ) -> None:
         if np.isscalar(arr):
             return arr
         arr = np.asarray(arr, dtype=np.float64)
-        # Shape [I]
         if len(arr.shape) == 1:
-            return arr
+            # Shape [I]
+            if arr.shape[-1] == I:
+                return arr
+            # Shape [T], take last element
+            else:
+                return arr[-1]
         # Shape [T, I]
         # Take last column
-        elif len(arr.shape) == 2:
+        elif len(arr.shape) == 2 and arr.shape[-1] == I:
             return arr[-1:, :]
         else:
             raise ValueError(
@@ -181,10 +192,11 @@ class NLPBase(ABC):
                      ref_values_terminal: Optional[Union[Array, float]] = None,
                      weights_terminal: Optional[Union[Array, float]] = None,
                      ) -> None:
+        I = len(idx_obs) if isinstance(idx_obs, (list, np.ndarray)) else 1
         if ref_values_terminal is None:
-            ref_values_terminal = self._get_terminal_values(ref_values)
+            ref_values_terminal = self._get_terminal_values(ref_values, I)
         if weights_terminal is None:
-            weights_terminal = self._get_terminal_values(weights)
+            weights_terminal = self._get_terminal_values(weights, I)
 
         self._add_cost(VarType.OBS, name, f, idx_obs, ref_values, weights, False)
         self._add_cost(VarType.OBS, name, f, idx_obs, ref_values_terminal, weights_terminal, True)
@@ -198,10 +210,11 @@ class NLPBase(ABC):
                      ref_values_terminal: Optional[Union[Array, float]] = None,
                      weights_terminal: Optional[Union[Array, float]] = None,
                      ) -> None:
+        I = len(idx_state) if isinstance(idx_state, (list, np.ndarray)) else 1
         if ref_values_terminal is None:
-            ref_values_terminal = self._get_terminal_values(ref_values)
+            ref_values_terminal = self._get_terminal_values(ref_values, I)
         if weights_terminal is None:
-            weights_terminal = self._get_terminal_values(weights)
+            weights_terminal = self._get_terminal_values(weights, I)
 
         self._add_cost(VarType.STATE, name, f, idx_state, ref_values, weights, False)
         self._add_cost(VarType.STATE, name, f, idx_state, ref_values_terminal, weights_terminal, True)
@@ -215,10 +228,12 @@ class NLPBase(ABC):
                      ref_values_terminal: Optional[Union[Array, float]] = None,
                      weights_terminal: Optional[Union[Array, float]] = None,
                      ) -> None:
+        I = len(idx_u) if isinstance(idx_u, (list, np.ndarray)) else 1
         if ref_values_terminal is None:
-            ref_values_terminal = self._get_terminal_values(ref_values)
+            ref_values_terminal = self._get_terminal_values(ref_values, I)
         if weights_terminal is None:
-            weights_terminal = self._get_terminal_values(weights)
+            weights_terminal = self._get_terminal_values(weights, I)
+
 
         self._add_cost(VarType.CONTROL, name, f, idx_u, ref_values, weights, False)
         self._add_cost(VarType.CONTROL, name, f, idx_u, ref_values_terminal, weights_terminal, True)
