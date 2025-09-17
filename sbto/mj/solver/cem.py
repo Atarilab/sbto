@@ -42,14 +42,11 @@ class CEM(SamplingBasedSolver):
         min_cost = float(costs[arg_min])
         best_control = eps[arg_min]
 
-        # Keep track of best-ever cost
-        new_min_cost = min(min_cost, state.min_cost)
-
         # Update state with exponential smoothing
-        new_state = state.replace(
+        state = state.replace(
             mean = state.mean + self.alpha_mean * (mean - state.mean),
             cov = state.cov + self.alpha_cov * (cov - state.cov),
-            min_cost = new_min_cost,
         )
+        state = self.update_min_cost(state, min_cost)
 
-        return new_state, min_cost, best_control
+        return state, min_cost, best_control

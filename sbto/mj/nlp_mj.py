@@ -41,13 +41,12 @@ class NLP_MuJoCo(NLPBase):
         self.b = 0.5 * (self.q_max - self.q_min)[None, None, ...]
 
         # preallocate results
-        self.res_prealocated: bool = False
         self.mj_models = None
         self.mj_datas = None
         self.initial_states : Array = None
         self.state_rollout : Array = None
         self.sensordata_rollout : Array = None
-        self.N = 0
+        self.N_allocated = -1
         self.Nobs = 0
 
         # rollout variables
@@ -62,18 +61,17 @@ class NLP_MuJoCo(NLPBase):
         self.set_initial_state(x_0)
 
     def _init_batches(self, N: int) -> None:
-        self.N = N
+        self.N_allocated = N
         self.Nobs = self.mj_model.nsensordata
-        self.mj_models = [self.mj_model] * self.N
+        self.mj_models = [self.mj_model] * self.N_allocated
         self.mj_datas = [copy.copy(self.mj_data) for _ in range(self.Nthread)]
         t0 = [0.]
         # [N, Nx+1], include time as the first state
-        self.initial_states = np.tile(np.concatenate((t0, self.x_0)), (self.N, 1))
+        self.initial_states = np.tile(np.concatenate((t0, self.x_0)), (self.N_allocated, 1))
         # [N, T, Nx+1]
-        self.state_rollout = np.empty((self.N, self.T, self.Nx+1))
+        self.state_rollout = np.empty((self.N_allocated, self.T, self.Nx+1))
         # [N, T, Nobs]
-        self.sensordata_rollout = np.empty((self.N, self.T, self.Nobs))
-        self.res_prealocated = True
+        self.sensordata_rollout = np.empty((self.N_allocated, self.T, self.Nobs))
 
     @staticmethod
     def get_state(model, data, nbatch=1):
@@ -98,7 +96,7 @@ class NLP_MuJoCo(NLPBase):
     def add_state_cost(self, name, f, idx_state, ref_values = 0, weights = 1, terminal = False):
         if np.any(idx_state >= self.Nx):
             raise ValueError(f"Invalid state index. Above {self.Nx}.")
-        # +1 for time
+        # +1 for time in the state
         return super().add_state_cost(name, f, idx_state+1, ref_values, weights, terminal)
 
     def _rollout_dynamics(self, u_traj: Array) -> Tuple[Array, Array, Array]:
@@ -106,7 +104,7 @@ class NLP_MuJoCo(NLPBase):
         Rollout the dynamics with the given control trajecotries [-1, T, Nu].
         Returns state [-1, T, Nu], control [-1, T, Nu] and observations [-1, T, Nobs] trajectories.
         """
-        if not self.res_prealocated:
+        if self.N_allocated != u_traj.shape[0]:
             self._init_batches(u_traj.shape[0])
         else:
             self._reset_data()

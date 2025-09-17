@@ -114,7 +114,9 @@ class NLPBase(ABC):
                 weights: Union[Array, float],
                 terminal: bool,
                 ) -> None:
-        
+        if name in self._costs_names:
+            raise ValueError(f"Cost with name '{name}' already exists.")
+
         I = len(idx) if isinstance(idx, (list, np.ndarray)) else 1
         T = 1 if terminal else self.T
 

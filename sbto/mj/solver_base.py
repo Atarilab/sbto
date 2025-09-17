@@ -18,6 +18,7 @@ class SolverState:
     rng: Array
     temperature: float
     min_cost: float
+    min_cost_all: float
 
 class SamplingBasedSolver(ABC):
     """
@@ -52,6 +53,7 @@ class SamplingBasedSolver(ABC):
             rng=self.seed,
             temperature=temperature,
             min_cost=np.inf,
+            min_cost_all=np.inf,
         )
 
     def sample(self, state: SolverState) -> Tuple[Array, SolverState]:
@@ -100,16 +102,31 @@ class SamplingBasedSolver(ABC):
 
         end = time.time()
         duration = end - start
-        print(f"Solving time: {duration}s")
+        print(f"Solving time: {duration:.2f}s")
         return states, min_cost_all, best_u_all
     
-    def evaluate(self, state: SolverState) -> Tuple[Array, Array, Array, float]:
+    def evaluate(self, u_traj: Array) -> Tuple[Array, Array, Array, float]:
         """
-        Evaluate the solver state.
+        Evaluate trajectory and returns rollout data.
         """
-        x_traj, u_traj, obs_traj = self.nlp.rollout(state.mean[None, ...])
+        x_traj, u_traj, obs_traj = self.nlp.rollout(u_traj)
         cost = self.nlp.cost(x_traj, u_traj, obs_traj)
-        return x_traj, u_traj, obs_traj, cost
+        return (
+            np.squeeze(x_traj),
+            np.squeeze(u_traj),
+            np.squeeze(obs_traj),
+            np.squeeze(cost),
+        )
+    
+    def update_min_cost(self, state: SolverState, min_cost_rollout : float) -> SolverState:
+        """
+        Update the mean cost in the solver state.
+        """
+        new_min_cost_all = min(min_cost_rollout, state.min_cost_all)
+        return state.replace(
+            min_cost=min_cost_rollout,
+            min_cost_all=new_min_cost_all,
+            )
     
     @abstractmethod
     def update(self,
