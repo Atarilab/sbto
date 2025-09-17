@@ -5,6 +5,7 @@ import numpy.typing as npt
 from scipy.interpolate import interp1d
 from typing import TypeAlias
 from enum import Enum
+from functools import wraps
 
 Array = npt.NDArray[np.float64]
 IntArray = npt.NDArray[np.int64]
@@ -183,60 +184,77 @@ class NLPBase(ABC):
         self._costs_fn.append(cost_fn)
         self._costs_names.append(name)
 
-    def add_obs_cost(self,
-                     name: str,
-                     f: CostFn,
-                     idx_obs: Union[IntArray, int],
-                     ref_values: Union[Array, float] = 0.,
-                     weights: Union[Array, float] = 1.,
-                     ref_values_terminal: Optional[Union[Array, float]] = None,
-                     weights_terminal: Optional[Union[Array, float]] = None,
-                     ) -> None:
-        I = len(idx_obs) if isinstance(idx_obs, (list, np.ndarray)) else 1
+    def _add_cost_and_terminal_cost(
+        self,
+        type: VarType,
+        name: str,
+        f: CostFn,
+        idx: Union[IntArray, int],
+        ref_values: Union[Array, float] = 0.,
+        weights: Union[Array, float] = 1.,
+        ref_values_terminal: Optional[Union[Array, float]] = None,
+        weights_terminal: Optional[Union[Array, float]] = None,
+        ) -> None:
+        I = len(idx) if isinstance(idx, (list, np.ndarray)) else 1
         if ref_values_terminal is None:
             ref_values_terminal = self._get_terminal_values(ref_values, I)
         if weights_terminal is None:
             weights_terminal = self._get_terminal_values(weights, I)
 
-        self._add_cost(VarType.OBS, name, f, idx_obs, ref_values, weights, False)
-        self._add_cost(VarType.OBS, name, f, idx_obs, ref_values_terminal, weights_terminal, True)
+        self._add_cost(type, name, f, idx, ref_values, weights, False)
+        self._add_cost(type, name, f, idx, ref_values_terminal, weights_terminal, True)
 
-    def add_state_cost(self,
-                     name: str,
-                     f: CostFn,
-                     idx_state: Union[IntArray, int],
-                     ref_values: Union[Array, float] = 0.,
-                     weights: Union[Array, float] = 1.,
-                     ref_values_terminal: Optional[Union[Array, float]] = None,
-                     weights_terminal: Optional[Union[Array, float]] = None,
-                     ) -> None:
-        I = len(idx_state) if isinstance(idx_state, (list, np.ndarray)) else 1
-        if ref_values_terminal is None:
-            ref_values_terminal = self._get_terminal_values(ref_values, I)
-        if weights_terminal is None:
-            weights_terminal = self._get_terminal_values(weights, I)
+    @staticmethod
+    def _type_cost(var_type: VarType):
+        """
+        Decorator factory to create add_*_cost methods for a given VarType.
+        Injects the var_type while preserving signature and docstring.
+        """
+        def decorator(func):
+            @wraps(func)
+            def wrapper(self: 'NLPBase', *args, **kwargs):
+                return self._add_cost_and_terminal_cost(var_type, *args, **kwargs)
+            return wrapper
+        return decorator
 
-        self._add_cost(VarType.STATE, name, f, idx_state, ref_values, weights, False)
-        self._add_cost(VarType.STATE, name, f, idx_state, ref_values_terminal, weights_terminal, True)
+    @_type_cost(VarType.CONTROL)
+    def add_control_cost(
+        self,
+        name: str,
+        f: CostFn,
+        idx_u: Union[IntArray, int],
+        ref_values: Union[Array, float] = 0.,
+        weights: Union[Array, float] = 1.,
+        ref_values_terminal: Optional[Union[Array, float]] = None,
+        weights_terminal: Optional[Union[Array, float]] = None,
+    ) -> None:
+        """Add a control cost with optional terminal component."""
 
-    def add_control_cost(self,
-                     name: str,
-                     f: CostFn,
-                     idx_u: Union[IntArray, int],
-                     ref_values: Union[Array, float] = 0.,
-                     weights: Union[Array, float] = 1.,
-                     ref_values_terminal: Optional[Union[Array, float]] = None,
-                     weights_terminal: Optional[Union[Array, float]] = None,
-                     ) -> None:
-        I = len(idx_u) if isinstance(idx_u, (list, np.ndarray)) else 1
-        if ref_values_terminal is None:
-            ref_values_terminal = self._get_terminal_values(ref_values, I)
-        if weights_terminal is None:
-            weights_terminal = self._get_terminal_values(weights, I)
+    @_type_cost(VarType.STATE)
+    def add_state_cost(
+        self,
+        name: str,
+        f: CostFn,
+        idx_x: Union[IntArray, int],
+        ref_values: Union[Array, float] = 0.,
+        weights: Union[Array, float] = 1.,
+        ref_values_terminal: Optional[Union[Array, float]] = None,
+        weights_terminal: Optional[Union[Array, float]] = None,
+    ) -> None:
+        """Add a state cost with optional terminal component."""
 
-
-        self._add_cost(VarType.CONTROL, name, f, idx_u, ref_values, weights, False)
-        self._add_cost(VarType.CONTROL, name, f, idx_u, ref_values_terminal, weights_terminal, True)
+    @_type_cost(VarType.OBS)
+    def add_obs_cost(
+        self,
+        name: str,
+        f: CostFn,
+        idx_o: Union[IntArray, int],
+        ref_values: Union[Array, float] = 0.,
+        weights: Union[Array, float] = 1.,
+        ref_values_terminal: Optional[Union[Array, float]] = None,
+        weights_terminal: Optional[Union[Array, float]] = None,
+    ) -> None:
+        """Add an observation cost with optional terminal component."""
 
     @staticmethod
     def quadratic_cost(var: Array, ref: Array, weights: Array) -> float:
