@@ -19,7 +19,7 @@ class NLP_MuJoCo(NLPBase):
         self.mj_data = mujoco.MjData(self.mj_model)
         
         super().__init__(
-            self.mj_model.nq, # +1 for time 
+            self.mj_model.nq,
             self.mj_model.nv,
             self.mj_model.nu,
             T,
@@ -102,26 +102,26 @@ class NLP_MuJoCo(NLPBase):
     def add_state_cost(self,
                      name: str,
                      f: CostFn,
-                     idx_state: Union[IntArray, int],
+                     idx_x: Union[IntArray, int],
                      ref_values: Union[Array, float] = 0.,
                      weights: Union[Array, float] = 1.,
                      ref_values_terminal: Optional[Union[Array, float]] = None,
                      weights_terminal: Optional[Union[Array, float]] = None,
                      use_intial_as_ref: bool = False,
                      ) -> None:
-        idx_state = np.asarray(idx_state)
-        if np.any(idx_state >= self.Nx):
+        idx_x = np.asarray(idx_x)
+        if np.any(idx_x >= self.Nx):
             raise ValueError(f"Invalid state index. Above {self.Nx}.")
         # +1 for time in the state
-        idx_state = idx_state + 1
+        idx_x = idx_x + 1
         if use_intial_as_ref:
             state = self.get_state_full(self.mj_model, self.mj_data)
-            ref_values = state[idx_state]
+            ref_values = state[idx_x]
 
         super().add_state_cost(
             name,
             f,
-            idx_state,
+            idx_x,
             ref_values,
             weights,
             ref_values_terminal,
@@ -153,9 +153,9 @@ class NLP_MuJoCo(NLPBase):
                                  sensor_idx: {sub_idx_sensor.tolist()}.\
                                  sub_idx_sensor: {sub_idx_sensor.tolist()}")
             
-            idx_obs = np.take(sensor_idx, sub_idx_sensor)
+            idx_o = np.take(sensor_idx, sub_idx_sensor)
         else:
-            idx_obs = sensor_idx
+            idx_o = sensor_idx
         
         # Set cost name
         if not isinstance(sensor_name, str):
@@ -165,12 +165,12 @@ class NLP_MuJoCo(NLPBase):
 
         # Use sensor data values as reference
         if use_intial_as_ref:
-            ref_values = self.mj_data.sensordata[idx_obs]
+            ref_values = self.mj_data.sensordata[idx_o]
             
         super().add_state_cost(
             name,
             f,
-            idx_obs,
+            idx_o,
             ref_values,
             weights,
             ref_values_terminal,
