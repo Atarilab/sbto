@@ -33,6 +33,9 @@ class NLP_MuJoCo(NLPBase):
             self.Nthread = Nthread if cpu_count() > Nthread > 0 else 1
         print(f"Using {self.Nthread} threads for MuJoCo simulation.")
 
+        self.dt = self.mj_model.opt.timestep
+        self.duration = self.T * self.dt
+
         # Set actuator limits
         self.q_min = np.array(self.mj_model.jnt_range)[1:, 0]
         self.q_max = np.array(self.mj_model.jnt_range)[1:, 1]
@@ -163,11 +166,14 @@ class NLP_MuJoCo(NLPBase):
         else:
             name = sensor_name
 
+        name_suffix = '_'.join(map(str, idx_o.tolist()))
+        name = name + '_' + name_suffix
+
         # Use sensor data values as reference
         if use_intial_as_ref:
             ref_values = self.mj_data.sensordata[idx_o]
             
-        super().add_state_cost(
+        super().add_obs_cost(
             name,
             f,
             idx_o,
