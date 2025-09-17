@@ -28,16 +28,26 @@ class G1_Stand(NLP_MuJoCo):
             self.quadratic_cost,
             idx_joint_pos,
             self.x_0[idx_joint_pos],
-            1.,
+            weights=0.1,
+            use_intial_as_ref=True
             )
         
         self.add_state_cost(
             "height",
             self.quadratic_cost,
             2,
-            self.x_0[2],
-            100.,
-            terminal=True
+            weights=0.,
+            weights_terminal=100.,
+            use_intial_as_ref=True
+            )
+        
+        self.add_sensor_cost(
+            "global_pos_torso",
+            self.quadratic_cost,
+            2,
+            weights=0.,
+            weights_terminal=100.,
+            use_intial_as_ref=True
             )
         
         

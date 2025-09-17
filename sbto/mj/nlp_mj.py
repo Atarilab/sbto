@@ -1,8 +1,8 @@
 import numpy as np
 import mujoco
 from mujoco import rollout
-from typing import Tuple, Union, Callable, TypeAlias, List
-from sbto.mj.nlp_base import NLPBase, Array
+from typing import Tuple, Union, Optional, List
+from sbto.mj.nlp_base import NLPBase, Array, CostFn, IntArray
 import copy
 from multiprocessing import cpu_count
 
@@ -59,6 +59,9 @@ class NLP_MuJoCo(NLPBase):
         x_v_0 = np.array(keyframe.qvel)
         x_0 = np.concatenate((x_p_0, x_v_0))
         self.set_initial_state(x_0)
+        self.mj_data.qpos = keyframe.qpos
+        self.mj_data.qvel = keyframe.qvel
+        mujoco.mj_forward(self.mj_model, self.mj_data)
 
     def _init_batches(self, N: int) -> None:
         self.N_allocated = N
@@ -74,16 +77,106 @@ class NLP_MuJoCo(NLPBase):
         self.sensordata_rollout = np.empty((self.N_allocated, self.T, self.Nobs))
 
     @staticmethod
-    def get_state(model, data, nbatch=1):
+    def get_state_full(model, data):
         full_physics = mujoco.mjtState.mjSTATE_FULLPHYSICS
         state = np.zeros((mujoco.mj_stateSize(model, full_physics),))
         mujoco.mj_getState(model, data, state, full_physics)
-        return np.tile(state, (nbatch, 1))
-
+        return state
+    
+    def get_sensors_adr(self, sensor_names: Union[str, list[str]]) -> Array:
+        """Gets sensor adr given one or multiple sensor names."""
+        if isinstance(sensor_names, str):
+            sensor_names = [sensor_names]
+        adr = []
+        for name in sensor_names:
+            sensor_id = self.mj_model.sensor(name).id
+            sensor_adr = self.mj_model.sensor_adr[sensor_id]
+            sensor_dim = self.mj_model.sensor_dim[sensor_id]
+            adr.extend(range(sensor_adr, sensor_adr + sensor_dim))
+        return np.asarray(adr)
+    
     def _reset_data(self) -> None:
         for data in self.mj_datas:
             mujoco.mj_resetData(self.mj_model, data)
+    
+    def add_state_cost(self,
+                     name: str,
+                     f: CostFn,
+                     idx_state: Union[IntArray, int],
+                     ref_values: Union[Array, float] = 0.,
+                     weights: Union[Array, float] = 1.,
+                     ref_values_terminal: Optional[Union[Array, float]] = None,
+                     weights_terminal: Optional[Union[Array, float]] = None,
+                     use_intial_as_ref: bool = False,
+                     ) -> None:
+        idx_state = np.asarray(idx_state)
+        if np.any(idx_state >= self.Nx):
+            raise ValueError(f"Invalid state index. Above {self.Nx}.")
+        # +1 for time in the state
+        idx_state = idx_state + 1
+        if use_intial_as_ref:
+            state = self.get_state_full(self.mj_model, self.mj_data)
+            ref_values = state[idx_state]
 
+        super().add_state_cost(
+            name,
+            f,
+            idx_state,
+            ref_values,
+            weights,
+            ref_values_terminal,
+            weights_terminal,
+            )
+    
+    def add_sensor_cost(self,
+                        sensor_name: Union[str, List[str]],
+                        f: CostFn,
+                        sub_idx_sensor: Union[IntArray, int] = -1,
+                        ref_values: Union[Array, float] = 0.,
+                        weights: Union[Array, float] = 1.,
+                        ref_values_terminal: Optional[Union[Array, float]] = None,
+                        weights_terminal: Optional[Union[Array, float]] = None,
+                        use_intial_as_ref: bool = False,
+                        ) -> None:
+        # Get sensordata idx
+        sensor_idx = self.get_sensors_adr(sensor_name)
+
+        # sub_idx_sensor is the index to consider among sensor_idx
+        if sub_idx_sensor != -1:
+            if isinstance(sub_idx_sensor, int):
+                sub_idx_sensor = [sub_idx_sensor]
+            
+            sub_idx_sensor = np.asarray(sub_idx_sensor, dtype=np.int64)
+
+            if len(sub_idx_sensor) > len(sensor_idx):
+                raise ValueError(f"Invalid sub_idx_sensor. Too many values.\n\
+                                 sensor_idx: {sub_idx_sensor.tolist()}.\
+                                 sub_idx_sensor: {sub_idx_sensor.tolist()}")
+            
+            idx_obs = np.take(sensor_idx, sub_idx_sensor)
+        else:
+            idx_obs = sensor_idx
+        
+        # Set cost name
+        if not isinstance(sensor_name, str):
+            name = "+".join(sensor_name)
+        else:
+            name = sensor_name
+
+        # Use sensor data values as reference
+        if use_intial_as_ref:
+            ref_values = self.mj_data.sensordata[idx_obs]
+            
+        super().add_state_cost(
+            name,
+            f,
+            idx_obs,
+            ref_values,
+            weights,
+            ref_values_terminal,
+            weights_terminal,
+            )
+        
     def get_q_des_from_u_traj(self, act: Array) -> Array:
         action_scale = 0.5
         q_des = np.clip(
@@ -92,12 +185,6 @@ class NLP_MuJoCo(NLPBase):
             self.q_max
             )
         return q_des
-    
-    def add_state_cost(self, name, f, idx_state, ref_values = 0, weights = 1, terminal = False):
-        if np.any(idx_state >= self.Nx):
-            raise ValueError(f"Invalid state index. Above {self.Nx}.")
-        # +1 for time in the state
-        return super().add_state_cost(name, f, idx_state+1, ref_values, weights, terminal)
 
     def _rollout_dynamics(self, u_traj: Array) -> Tuple[Array, Array, Array]:
         """

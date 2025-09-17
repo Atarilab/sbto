@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Tuple, Union, Callable, TypeAlias, List
+from typing import Tuple, Union, Callable, TypeAlias, List, Optional
 import numpy as np
 import numpy.typing as npt
 from scipy.interpolate import interp1d
@@ -96,6 +96,25 @@ class NLPBase(ABC):
             )
         
     @staticmethod
+    def _get_terminal_values(
+        arr: Union[Array, float],
+        ) -> None:
+        if np.isscalar(arr):
+            return arr
+        arr = np.asarray(arr, dtype=np.float64)
+        # Shape [I]
+        if len(arr.shape) == 1:
+            return arr
+        # Shape [T, I]
+        # Take last column
+        elif len(arr.shape) == 2:
+            return arr[-1:, :]
+        else:
+            raise ValueError(
+                f"Invalid array shape {arr.shape}."
+            )
+        
+    @staticmethod
     def _extract_var(rollout_var: Array, idx: IntArray, terminal: bool) -> Array:
         """
         Select the relevant slice from a variable array depending on terminal flag.
@@ -103,7 +122,7 @@ class NLPBase(ABC):
         if terminal:
             return np.take_along_axis(rollout_var[:, -1:, :], idx, axis=-1)
         else:
-            return np.take_along_axis(rollout_var, idx, axis=-1)
+            return np.take_along_axis(rollout_var[:, :-1, :], idx, axis=-1)
 
     def _add_cost(self,
                 type: VarType,
@@ -114,16 +133,20 @@ class NLPBase(ABC):
                 weights: Union[Array, float],
                 terminal: bool,
                 ) -> None:
+        TERMINAL_STR = "_terminal"
+
+        if terminal and name in self._costs_names:
+            name = name + TERMINAL_STR
         if name in self._costs_names:
             raise ValueError(f"Cost with name '{name}' already exists.")
 
         I = len(idx) if isinstance(idx, (list, np.ndarray)) else 1
-        T = 1 if terminal else self.T
+        T = 1 if terminal else self.T-1
 
         ref_values = self._normalize_cost_array(ref_values, T, I, name=f"ref_values of {name}")
         weights    = self._normalize_cost_array(weights,    T, I, name=f"weights of {name}")
         idx = np.asarray(idx, dtype=np.int32).reshape(1, 1, -1)
-            
+
         match type:
             case VarType.STATE:
                 cost_fn = lambda x, u, o: f(
@@ -155,9 +178,16 @@ class NLPBase(ABC):
                      idx_obs: Union[IntArray, int],
                      ref_values: Union[Array, float] = 0.,
                      weights: Union[Array, float] = 1.,
-                     terminal: bool = False,
+                     ref_values_terminal: Optional[Union[Array, float]] = None,
+                     weights_terminal: Optional[Union[Array, float]] = None,
                      ) -> None:
-        self._add_cost(VarType.OBS, name, f, idx_obs, ref_values, weights, terminal)
+        if ref_values_terminal is None:
+            ref_values_terminal = self._get_terminal_values(ref_values)
+        if weights_terminal is None:
+            weights_terminal = self._get_terminal_values(weights)
+
+        self._add_cost(VarType.OBS, name, f, idx_obs, ref_values, weights, False)
+        self._add_cost(VarType.OBS, name, f, idx_obs, ref_values_terminal, weights_terminal, True)
 
     def add_state_cost(self,
                      name: str,
@@ -165,9 +195,16 @@ class NLPBase(ABC):
                      idx_state: Union[IntArray, int],
                      ref_values: Union[Array, float] = 0.,
                      weights: Union[Array, float] = 1.,
-                     terminal: bool = False,
+                     ref_values_terminal: Optional[Union[Array, float]] = None,
+                     weights_terminal: Optional[Union[Array, float]] = None,
                      ) -> None:
-        self._add_cost(VarType.STATE, name, f, idx_state, ref_values, weights, terminal)
+        if ref_values_terminal is None:
+            ref_values_terminal = self._get_terminal_values(ref_values)
+        if weights_terminal is None:
+            weights_terminal = self._get_terminal_values(weights)
+
+        self._add_cost(VarType.STATE, name, f, idx_state, ref_values, weights, False)
+        self._add_cost(VarType.STATE, name, f, idx_state, ref_values_terminal, weights_terminal, True)
 
     def add_control_cost(self,
                      name: str,
@@ -175,9 +212,16 @@ class NLPBase(ABC):
                      idx_u: Union[IntArray, int],
                      ref_values: Union[Array, float] = 0.,
                      weights: Union[Array, float] = 1.,
-                     terminal: bool = False,
+                     ref_values_terminal: Optional[Union[Array, float]] = None,
+                     weights_terminal: Optional[Union[Array, float]] = None,
                      ) -> None:
-        self._add_cost(VarType.CONTROL, name, f, idx_u, ref_values, weights, terminal)
+        if ref_values_terminal is None:
+            ref_values_terminal = self._get_terminal_values(ref_values)
+        if weights_terminal is None:
+            weights_terminal = self._get_terminal_values(weights)
+
+        self._add_cost(VarType.CONTROL, name, f, idx_u, ref_values, weights, False)
+        self._add_cost(VarType.CONTROL, name, f, idx_u, ref_values_terminal, weights_terminal, True)
 
     @staticmethod
     def quadratic_cost(var: Array, ref: Array, weights: Array) -> float:
