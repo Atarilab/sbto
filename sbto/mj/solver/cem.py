@@ -14,8 +14,10 @@ class CEM(SamplingBasedSolver):
                  elite_frac: float = 0.1,
                  alpha_mean: float = 0.8,
                  alpha_cov: float = 0.3,
-                 seed: int = 0):
-        super().__init__(nlp, N_samples, seed)
+                 seed: int = 0,
+                 quasi_random: bool = True,
+                 ):
+        super().__init__(nlp, N_samples, seed, quasi_random)
         self.elite_frac = elite_frac
         self.N_elite = int(self.elite_frac * self.Nsamples)
         self.alpha_mean = alpha_mean

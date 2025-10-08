@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Tuple
 import time
 from tqdm import trange
+from scipy.stats import qmc
 
 from sbto.mj.nlp_mj import NLPBase, Array
 
@@ -28,11 +29,14 @@ class SamplingBasedSolver(ABC):
     def __init__(self,
                  nlp : NLPBase,
                  N_samples: int = 100,
-                 seed : int = 0):
+                 seed : int = 0,
+                 quasi_random : bool = True
+                 ):
         self.nlp = nlp
         self.Nsamples = N_samples
         self.seed = np.array([seed])
         self.rng = np.random.default_rng(self.seed)
+        self.quasi_random = quasi_random
 
     def init_state(self,
                    mean: Array | Any = None,
@@ -56,17 +60,27 @@ class SamplingBasedSolver(ABC):
             min_cost_all=np.inf,
         )
 
-    def sample(self, state: SolverState) -> Tuple[Array, SolverState]:
+    def multivariate_normal(self, state: SolverState) -> Tuple[Array, SolverState]:
         """
         Sample from the current state distribution.
         """
-        noise = self.rng.multivariate_normal(
-            mean=state.mean,
-            cov=state.cov,
-            size=(self.Nsamples,),
-            check_valid="ignore",
-            method="cholesky"
-        )
+        if not self.quasi_random:
+            noise = self.rng.multivariate_normal(
+                mean=state.mean,
+                cov=state.cov,
+                size=(self.Nsamples,),
+                check_valid="ignore",
+                method="cholesky"
+            )
+        else:
+            sampler = qmc.MultivariateNormalQMC(
+                mean=state.mean,
+                cov=state.cov,
+                rng=self.rng,
+                inv_transform=False,
+            )
+            noise = sampler.random(self.Nsamples)
+
         return noise, state
 
     def solve(self,
@@ -94,7 +108,8 @@ class SamplingBasedSolver(ABC):
 
         start = time.time()
         for it in pbar:
-            eps, state = self.sample(state)
+            eps, state = self.multivariate_normal(state)
+
             state, costs, best_u = self.update(state, eps)
             states.append(state)
             
