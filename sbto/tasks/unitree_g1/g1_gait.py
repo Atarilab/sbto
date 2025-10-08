@@ -30,7 +30,7 @@ class G1_Gait(NLP_MuJoCo):
             "joint_pos",
             self.quadratic_cost,
             idx_joint_pos,
-            weights=0.1,
+            weights=0.25,
             use_intial_as_ref=True
             )
         self.add_state_cost(
@@ -43,7 +43,7 @@ class G1_Gait(NLP_MuJoCo):
             "bease_height",
             self.quadratic_cost,
             2,
-            weights=5.,
+            weights=15.,
             weights_terminal=25.,
             use_intial_as_ref=True
             )
@@ -68,19 +68,18 @@ class G1_Gait(NLP_MuJoCo):
             const.G1Sensors.TORSO_LINVEL,
             self.quadratic_cost,
             ref_values=self.v_des,
-            weights=[2.5, 2.5, 5.],
+            weights=[50., 2.5, 5.],
             ref_values_terminal=0.,
-            weights_terminal=10.,
             )
         self.add_sensor_cost(
             const.G1Sensors.TORSO_ANGVEL,
             self.quadratic_cost,
             weights=1.,
-            weights_terminal=10.,
+            weights_terminal=1.,
             )
         self.add_sensor_cost(
-            const.G1Sensors.TORSO_UPRIGHT,
-            self.cosine_dist,
+            const.G1Sensors.TORSO_QUAT,
+            self.quat_dist,
             weights=0.1,
             weights_terminal=5.,
             use_intial_as_ref=True
@@ -93,20 +92,31 @@ class G1_Gait(NLP_MuJoCo):
             sub_idx_sensor=const.G1Sensors.cnt_status_id,
             ref_values=self.contact_plan[:-1],
             ref_values_terminal=self.contact_plan[-1:],
-            weights=1.5,
+            weights=4.,
         )
         self.add_sensor_cost(
             const.G1Sensors.FEET_CONTACTS,
             self.quadratic_cost,
             sub_idx_sensor=const.G1Sensors.cnt_force_id,
-            weights=1.0e-5,
+            weights=1.0e-6,
+        )
+        self.add_sensor_cost(
+            const.G1Sensors.TORSO_LINVEL,
+            self.forward_vertical_prod,
+            sub_idx_sensor=[0, 1, 2, 2],
+            weights=0.,
+            weights_terminal=100.,
         )
 
     @staticmethod
     def contact_cost(cnt_status_rollout, cnt_plan, weights) -> float:
         cnt_status_rollout[cnt_status_rollout>1] = 1
-        return np.sum(weights[None, ...] * np.abs(cnt_status_rollout - cnt_plan[None, ...]), axis=(-1, -2))
+        return np.sum(weights[None, ...] * cnt_status_rollout == cnt_plan[None, ...], axis=(-1, -2))
 
     @staticmethod
-    def cosine_dist(var, ref, weights) -> float:
-        return np.sum(weights[None, :, 0] * (1. - np.sum(var * ref[None, ...], axis=-1)))
+    def quat_dist(var, ref, weights) -> float:
+        return np.sum(weights[:, 0] * (1.0 - np.abs(np.sum(var * ref[None, ...], axis=-1))), axis=(-1))  # (N,)
+    
+    @staticmethod
+    def forward_vertical_prod(var, ref, weights) -> float:
+        return np.sum(weights[:, 0] * (var[:, :, :-2] * var[:, :, -2:]) ** 2, axis=(-1, -2))
