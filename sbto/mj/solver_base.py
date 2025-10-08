@@ -33,7 +33,7 @@ class SamplingBasedSolver(ABC):
                  quasi_random : bool = True
                  ):
         self.nlp = nlp
-        self.Nsamples = N_samples
+        self.N_samples = N_samples
         self.seed = np.array([seed])
         self.rng = np.random.default_rng(self.seed)
         self.quasi_random = quasi_random
@@ -68,7 +68,7 @@ class SamplingBasedSolver(ABC):
             noise = self.rng.multivariate_normal(
                 mean=state.mean,
                 cov=state.cov,
-                size=(self.Nsamples,),
+                size=(self.N_samples,),
                 check_valid="ignore",
                 method="cholesky"
             )
@@ -79,7 +79,7 @@ class SamplingBasedSolver(ABC):
                 rng=self.rng,
                 inv_transform=False,
             )
-            noise = sampler.random(self.Nsamples)
+            noise = sampler.random(self.N_samples)
 
         return noise, state
 
@@ -98,11 +98,11 @@ class SamplingBasedSolver(ABC):
             SolverState: Final state after optimization.
             Array: Best control knots
             float: Cost of best control
-            Array: All costs of all iterations [Nit, Nsamples]
+            Array: All costs of all iterations [Nit, N_samples]
         """
         states = []
         min_cost_all = np.inf
-        all_costs = np.empty((Nit, self.Nsamples))
+        all_costs = np.empty((Nit, self.N_samples))
         best_u_all = None
         pbar = trange(Nit, desc="Optimizing", leave=True)
 
