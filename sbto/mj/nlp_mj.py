@@ -150,11 +150,6 @@ class NLP_MuJoCo(NLPBase):
                 sub_idx_sensor = [sub_idx_sensor]
             
             sub_idx_sensor = np.asarray(sub_idx_sensor, dtype=np.int64)
-
-            if len(sub_idx_sensor) > len(sensor_idx):
-                raise ValueError(f"Invalid sub_idx_sensor. Too many values.\n\
-                                 sensor_idx: {sub_idx_sensor.tolist()}.\
-                                 sub_idx_sensor: {sub_idx_sensor.tolist()}")
             
             idx_o = np.take(sensor_idx, sub_idx_sensor)
         else:
@@ -168,6 +163,8 @@ class NLP_MuJoCo(NLPBase):
 
         name_suffix = '_'.join(map(str, idx_o.tolist()))
         name = name + '_' + name_suffix
+        count_name = sum(1 for n in self._costs_names if name == n)
+        name += '_' + str(count_name)
 
         # Use sensor data values as reference
         if use_intial_as_ref:

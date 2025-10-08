@@ -201,8 +201,10 @@ class NLPBase(ABC):
         if weights_terminal is None:
             weights_terminal = self._get_terminal_values(weights, I)
 
-        self._add_cost(type, name, f, idx, ref_values, weights, False)
-        self._add_cost(type, name, f, idx, ref_values_terminal, weights_terminal, True)
+        if not np.all(weights == 0.):
+            self._add_cost(type, name, f, idx, ref_values, weights, False)
+        if not np.all(weights_terminal == 0.):
+            self._add_cost(type, name, f, idx, ref_values_terminal, weights_terminal, True)
 
     @staticmethod
     def _type_cost(var_type: VarType):
