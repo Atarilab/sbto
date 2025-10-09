@@ -1,5 +1,5 @@
 import numpy as np
-from flax.struct import dataclass
+from dataclasses import dataclass
 from abc import ABC, abstractmethod
 from typing import Any, Tuple
 import time
@@ -144,11 +144,10 @@ class SamplingBasedSolver(ABC):
         Update the mean cost in the solver state.
         """
         new_min_cost_all = min(min_cost_rollout, state.min_cost_all)
-        return state.replace(
-            min_cost=min_cost_rollout,
-            min_cost_all=new_min_cost_all,
-            )
-    
+        state.min_cost=min_cost_rollout
+        state.min_cost_all=new_min_cost_all
+        return state
+            
     @abstractmethod
     def update(self,
                state: SolverState,

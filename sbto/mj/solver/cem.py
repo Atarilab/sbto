@@ -19,7 +19,7 @@ class CEM(SamplingBasedSolver):
                  ):
         super().__init__(nlp, N_samples, seed, quasi_random)
         self.elite_frac = elite_frac
-        self.N_elite = int(self.elite_frac * self.Nsamples)
+        self.N_elite = int(self.elite_frac * self.N_samples)
         self.alpha_mean = alpha_mean
         self.alpha_cov = alpha_cov
 
@@ -45,10 +45,8 @@ class CEM(SamplingBasedSolver):
         best_control = eps[arg_min]
 
         # Update state with exponential smoothing
-        state = state.replace(
-            mean = state.mean + self.alpha_mean * (mean - state.mean),
-            cov = state.cov + self.alpha_cov * (cov - state.cov),
-        )
+        state.mean=state.mean + self.alpha_mean * (mean - state.mean)
+        state.cov=state.cov + self.alpha_cov * (cov - state.cov)
         state = self.update_min_cost(state, min_cost)
 
         return state, costs, best_control
