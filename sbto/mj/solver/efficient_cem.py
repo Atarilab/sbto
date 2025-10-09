@@ -40,8 +40,8 @@ class EfficientCEM(SamplingBasedSolver):
         self.Id = np.diag(np.linspace(a, b, self.nlp.Nknots).repeat(self.nlp.Nu))
 
         # History of all samples and their costs
-        self.all_samples = np.zeros((self.Nsamples + 2 * self.N_elite, self.nlp.Nvars_u))
-        self.all_costs = np.full(self.Nsamples + 2 * self.N_elite, np.inf)
+        self.all_samples = np.zeros((self.N_samples + 2 * self.N_elite, self.nlp.Nvars_u))
+        self.all_costs = np.full(self.N_samples + 2 * self.N_elite, np.inf)
         self._elite_hist = None
         self._cost_elite_hist = np.full(self.N_elite, np.inf)
 
@@ -85,10 +85,9 @@ class EfficientCEM(SamplingBasedSolver):
         best_control = elites[0]
 
         # Exponential smoothing update
-        state = state.replace(
-            mean=state.mean + self.alpha_mean * (mean - state.mean),
-            cov=state.cov + self.alpha_cov * (cov - state.cov),
-        )
+        state.mean=state.mean + self.alpha_mean * (mean - state.mean)
+        state.cov=state.cov + self.alpha_cov * (cov - state.cov)
+
         state = self.update_min_cost(state, min_cost)
 
-        return state, self.all_costs[argsort_idx[:self.Nsamples]], best_control
+        return state, self.all_costs[argsort_idx[:self.N_samples]], best_control
