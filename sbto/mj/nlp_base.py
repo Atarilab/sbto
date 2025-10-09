@@ -1,11 +1,12 @@
 from abc import ABC, abstractmethod
 from typing import Tuple, Union, Callable, TypeAlias, List, Optional
+import time
 import numpy as np
 import numpy.typing as npt
 from scipy.interpolate import interp1d
 from typing import TypeAlias
 from enum import Enum
-from functools import wraps
+from functools import wraps, partial
 
 Array = npt.NDArray[np.float64]
 IntArray = npt.NDArray[np.int64]
@@ -159,29 +160,13 @@ class NLPBase(ABC):
         weights    = self._normalize_cost_array(weights,    T, I, name=f"weights of {name}")
         idx = np.asarray(idx, dtype=np.int32).reshape(1, 1, -1)
 
-        match type:
-            case VarType.STATE:
-                cost_fn = lambda x, u, o: f(
-                    self._extract_var(x, idx, terminal),
-                    ref_values,
-                    weights
-                    )
-            case VarType.CONTROL:
-                cost_fn = lambda x, u, o: f(
-                    self._extract_var(u, idx, terminal),
-                    ref_values,
-                    weights
-                    )
-            case VarType.OBS:
-                cost_fn = lambda x, u, o: f(
-                    self._extract_var(o, idx, terminal),
-                    ref_values,
-                    weights
-                    )
-            case _:
-                raise ValueError(f"Unknown variable type: {type}")
-        
-        self._costs_fn.append(cost_fn)
+        extractor = partial(self._extract_var, idx=idx, terminal=terminal)
+        mapping = {
+            VarType.STATE: lambda x, u, o: f(extractor(x), ref_values, weights),
+            VarType.CONTROL: lambda x, u, o: f(extractor(u), ref_values, weights),
+            VarType.OBS: lambda x, u, o: f(extractor(o), ref_values, weights),
+        }
+        self._costs_fn.append(mapping[type])
         self._costs_names.append(name)
 
     def _add_cost_and_terminal_cost(
