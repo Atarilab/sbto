@@ -36,17 +36,19 @@ class EfficientCEM(SamplingBasedSolver):
         self.alpha_cov = alpha_cov
 
         # Small diagonal regularization for covariance
-        a, b = 1e-4, 1e-3
-        self.Id = np.diag(np.linspace(a, b, self.nlp.Nknots).repeat(self.nlp.Nu))
+        self.std = 2e-4
+        self.Id = np.eye(nlp.Nvars_u)
+        self.it_no_improvement = 0
 
         # History of all samples and their costs
-        self.all_samples = np.zeros((self.N_samples + 2 * self.N_elite, self.nlp.Nvars_u))
-        self.all_costs = np.full(self.N_samples + 2 * self.N_elite, np.inf)
+        self.all_samples = np.zeros((self.N_samples + 1 * self.N_elite, self.nlp.Nvars_u))
+        self.all_costs = np.full(self.N_samples + 1 * self.N_elite, np.inf)
         self._elite_hist = None
         self._cost_elite_hist = np.full(self.N_elite, np.inf)
 
     def random_interpolate_elites(self) -> Array:
-        weights = self.rng.random(size=(self.N_elite, self.N_elite))
+        lmbda = self.N_elite / 3 # Higher means selecting one of the elites, Lower means mixing
+        weights = self.rng.uniform(size=(self.N_elite, self.N_elite)) * lmbda
         scaled_weights = np.exp(-weights)
         scaled_weights /= np.sum(scaled_weights, axis=1, keepdims=True)  # normalize rows
         return scaled_weights @ self._elite_hist
@@ -55,18 +57,26 @@ class EfficientCEM(SamplingBasedSolver):
         """
         Update solver state using elite samples accumulated over history.
         """
+        self.all_samples[self.N_elite:] = eps
+
         # Shift half elites
         if not self._elite_hist is None:
             self.all_samples[:self.N_elite] = self.random_interpolate_elites()
+            # Add best and mean
+            self.all_samples[0] = state.mean
 
-        self.all_samples[self.N_elite:-self.N_elite] = eps
-        costs = self.nlp.cost(*self.nlp.rollout(self.all_samples[:-self.N_elite]))
-        self.all_costs[:-self.N_elite] = costs
+        # self.all_samples[self.N_elite:-self.N_elite] = eps
+        # costs = self.nlp.cost(*self.nlp.rollout(self.all_samples[:-self.N_elite]))
+        # self.all_costs[:-self.N_elite] = costs
 
         # Add last elites
-        self.all_samples[-self.N_elite:] = self._elite_hist
-        self.all_costs[-self.N_elite:] = self._cost_elite_hist
-    
+        # self.all_samples[-self.N_elite:] = self._elite_hist
+        # self.all_costs[-self.N_elite:] = self._cost_elite_hist
+
+        # Add mean and best
+        costs = self.nlp.cost(*self.nlp.rollout(self.all_samples))
+        self.all_costs = costs
+
         # Compute elite set
         argsort_idx = np.argsort(self.all_costs)
         elite_idx = argsort_idx[:self.N_elite]
@@ -74,15 +84,24 @@ class EfficientCEM(SamplingBasedSolver):
         elite_costs = self.all_costs[elite_idx]
 
         self._elite_hist = elites
-        self._cost_elite_hist = elite_costs
+        # self._cost_elite_hist = elite_costs
 
         # Mean and covariance from elites
         mean = np.mean(elites, axis=0)
-        cov = np.cov(elites, rowvar=False) + self.Id
+        cov = np.cov(elites, rowvar=False)
 
         # Best current sample
         min_cost = elite_costs[0]
         best_control = elites[0]
+
+        # Increase noise if no improvement
+        if min_cost >= state.min_cost:
+            self.it_no_improvement += 1
+            id_elite = self.rng.choice(self.N_elite)
+            mean=elites[id_elite] + self.alpha_mean * (mean - elites[id_elite])
+            cov += self.Id * self.std * self.it_no_improvement
+        else:
+            self.it_no_improvement = 0
 
         # Exponential smoothing update
         state.mean=state.mean + self.alpha_mean * (mean - state.mean)
