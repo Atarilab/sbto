@@ -19,15 +19,15 @@ def main():
     nlp,
     N_samples=512,
     lambda_=2,      # 0.5–2.0
-    alpha_mean=0.9,   # 0.7–1.0; #was 0.9 
-    alpha_cov=0.25,   # 0.1–0.3  # was 0.25 
+    alpha_mean=0.9,   # 0.7–1.0; 
+    alpha_cov=0.25,   # 0.1–0.3  
     seed=42
     )
     state = solver.init_state(
         mean=None,
         cov=None,
         temperature=0.5,
-        sigma_mult=0.3 #was 0.3
+        sigma_mult=0.3 
     )
 
     print(f"[MPPI] lambda = {solver.lambda_}")
