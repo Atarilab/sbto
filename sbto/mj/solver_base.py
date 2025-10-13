@@ -1,5 +1,5 @@
 import numpy as np
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from abc import ABC, abstractmethod
 from typing import Any, Tuple
 import time
@@ -9,6 +9,7 @@ import yaml
 import os
 
 from sbto.mj.nlp_mj import NLPBase, Array
+from sbto.utils.config import ConfigBase
 
 @dataclass
 class SolverState:
@@ -24,30 +25,10 @@ class SolverState:
     min_cost_all: float
 
 @dataclass
-class SolverConfig:
+class SolverConfig(ConfigBase):
     N_samples: int = 100
     seed: int = 0
     quasi_random: bool = True
-
-    def save_to_yaml(self, dir_path: str):
-        """Implements saving to YAML."""
-        FILENAME = "config.yaml"
-        os.makedirs(dir_path, exist_ok=True)
-        file_path = os.path.join(dir_path, FILENAME)
-        with open(file_path, "w") as f:
-            yaml.safe_dump(asdict(self), f, sort_keys=False)
-        print(f"Config saved to {file_path}")
-
-    @classmethod
-    def load_from_yaml(cls, path: str):
-        """Implements loading from YAML."""
-        with open(path, "r") as f:
-            data = yaml.safe_load(f)
-        return cls(**data)
-    
-    @property
-    def args(self):
-        return asdict(self)
 
 class SamplingBasedSolver(ABC):
     """
@@ -65,6 +46,7 @@ class SamplingBasedSolver(ABC):
         self.seed = np.array([seed])
         self.rng = np.random.default_rng(self.seed)
         self.quasi_random = quasi_random
+        self.pbar_postfix = {}
 
     def init_state(self,
                    mean: Array | Any = None,
@@ -129,8 +111,8 @@ class SamplingBasedSolver(ABC):
             Array: All costs of all iterations [Nit, N_samples]
         """
         states = []
+        all_costs = []
         min_cost_all = np.inf
-        all_costs = np.empty((Nit, self.N_samples))
         best_u_all = None
         pbar = trange(Nit, desc="Optimizing", leave=True)
 
@@ -144,14 +126,16 @@ class SamplingBasedSolver(ABC):
             if state.min_cost_all < min_cost_all:
                 min_cost_all = state.min_cost_all
                 best_u_all = best_u
-            all_costs[it, :] = costs
+            all_costs.append(costs)
 
-            pbar.set_postfix(best_cost=min_cost_all)
+            self.pbar_postfix["min_cost"] = min_cost_all
+            pbar.set_postfix(self.pbar_postfix)
 
         end = time.time()
         duration = end - start
         print(f"Solving time: {duration:.2f}s")
 
+        all_costs = np.asarray(all_costs).reshape(Nit, -1)
         return states, best_u_all, min_cost_all, all_costs 
     
     def evaluate(self, u_traj: Array) -> Tuple[Array, Array, Array, float]:
