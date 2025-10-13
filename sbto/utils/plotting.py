@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
+import os
 
 Array = npt.NDArray[np.float64]
 
@@ -11,7 +12,8 @@ def plot_state_control(
         knots: Array,
         Nq: int,
         Nu: int,
-        title_prefix="Trajectory"
+        title_prefix="Trajectory",
+        save_dir: str=""
         ):
     """
     Plots:
@@ -108,9 +110,31 @@ def plot_state_control(
     axs3[-1].set_xlabel("Time step")
     plt.tight_layout()
 
-    plt.show()
+    if save_dir:
+        if not os.path.exists(save_dir):
+            Warning(f"Directory {save_dir} does not exists.")
+            os.makedirs(save_dir)
+        
+        filenames = [
+            "base_pos_vel",
+            "joint_pos_vel",
+            "controls_knots",
+        ]
+        format = "pdf"
+        for fig, filename in zip(
+            [fig1, fig2, fig3], filenames
+        ):  
+            filepath = os.path.join(save_dir, filename) + f'.{format}'
+            fig.savefig(filepath, format=format)
+            print("Figure saved to", filepath)
+    else:
+        plt.show()
 
-def plot_costs(all_costs: Array, title: str = "Cost Distribution over Iterations"):
+def plot_costs(
+        all_costs: Array,
+        title: str = "Cost Distribution over Iterations",
+        save_dir: str = "",
+        ):
     """
     Plot the distribution of costs over optimization iterations.
 
@@ -143,4 +167,19 @@ def plot_costs(all_costs: Array, title: str = "Cost Distribution over Iterations
     plt.grid(True, linestyle="--", alpha=0.6)
     plt.legend()
     plt.tight_layout()
-    plt.show()
+
+
+    if save_dir:
+        if not os.path.exists(save_dir):
+            Warning(f"Directory {save_dir} does not exists.")
+            os.makedirs(save_dir)
+        
+        filename = "cost_over_iterations"
+        format = "pdf"
+        filepath = os.path.join(save_dir, filename) + f".{format}"
+        plt.savefig(fname=filepath, format=format)
+        print("Figure saved to", filepath)
+
+    # When running on the server
+    else:
+        plt.show()
