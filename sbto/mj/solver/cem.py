@@ -1,8 +1,15 @@
 import numpy as np
 from typing import Tuple
+from dataclasses import dataclass
 
 from sbto.mj.nlp_base import NLPBase, Array
-from sbto.mj.solver_base import SamplingBasedSolver, SolverState
+from sbto.mj.solver_base import SamplingBasedSolver, SolverState, SolverConfig
+
+@dataclass
+class EfficientCEMConfig(SolverConfig):
+    elite_frac: float = 0.1
+    alpha_mean: float = 0.8
+    alpha_cov: float = 0.3
 
 class CEM(SamplingBasedSolver):
     """

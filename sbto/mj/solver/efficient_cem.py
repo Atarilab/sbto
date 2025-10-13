@@ -1,9 +1,15 @@
 import numpy as np
 from typing import Tuple, Optional
+from dataclasses import dataclass
 
 from sbto.mj.nlp_base import NLPBase, Array
-from sbto.mj.solver_base import SamplingBasedSolver, SolverState
+from sbto.mj.solver_base import SamplingBasedSolver, SolverState, SolverConfig
 
+@dataclass
+class EfficientCEMConfig(SolverConfig):
+    elite_frac: float = 0.1
+    alpha_mean: float = 0.8
+    alpha_cov: float = 0.3
 
 class EfficientCEM(SamplingBasedSolver):
     """
@@ -36,7 +42,7 @@ class EfficientCEM(SamplingBasedSolver):
         self.alpha_cov = alpha_cov
 
         # Small diagonal regularization for covariance
-        self.std = 2e-4
+        self.std = 1e-4
         self.Id = np.eye(nlp.Nvars_u)
         self.it_no_improvement = 0
 
@@ -47,12 +53,17 @@ class EfficientCEM(SamplingBasedSolver):
         self._cost_elite_hist = np.full(self.N_elite, np.inf)
 
     def random_interpolate_elites(self) -> Array:
-        lmbda = self.N_elite / 3 # Higher means selecting one of the elites, Lower means mixing
-        weights = self.rng.uniform(size=(self.N_elite, self.N_elite)) * lmbda
+        lmbda = self.N_elite / 2 # Higher means selecting one of the elites, Lower means mixing
+        weights = self.rng.uniform(size=(self.N_elite, self.N_elite))
         scaled_weights = np.exp(-weights)
         scaled_weights /= np.sum(scaled_weights, axis=1, keepdims=True)  # normalize rows
         return scaled_weights @ self._elite_hist
-
+    
+    def consensus(self, temperature: float) -> Array:
+        weights = np.exp(- (self._cost_elite_hist - np.min(self._cost_elite_hist)) / temperature)
+        weights /= np.sum(weights)
+        return weights @ self._elite_hist
+    
     def update(self, state: SolverState, eps: Array) -> Tuple[SolverState, Array, Array]:
         """
         Update solver state using elite samples accumulated over history.
@@ -61,9 +72,16 @@ class EfficientCEM(SamplingBasedSolver):
 
         # Shift half elites
         if not self._elite_hist is None:
-            self.all_samples[:self.N_elite] = self.random_interpolate_elites()
+            # self.all_samples[:self.N_elite] = self.random_interpolate_elites()
+            N_explore = self.N_elite
+            id_elite = self.rng.choice(self.N_elite)
+            temp = self.rng.uniform(1/self.N_elite, 1.)
+            self.all_samples[:self.N_elite] += (self.consensus(temp) - self._elite_hist) * self.rng.uniform(-1, 0, size=(N_explore, 1)) * np.sqrt(1+self.it_no_improvement)
             # Add best and mean
             self.all_samples[0] = state.mean
+            self.all_samples[1] = self.consensus(1.)
+        else:
+            self.cov0 = state.cov
 
         # self.all_samples[self.N_elite:-self.N_elite] = eps
         # costs = self.nlp.cost(*self.nlp.rollout(self.all_samples[:-self.N_elite]))
@@ -84,7 +102,7 @@ class EfficientCEM(SamplingBasedSolver):
         elite_costs = self.all_costs[elite_idx]
 
         self._elite_hist = elites
-        # self._cost_elite_hist = elite_costs
+        self._cost_elite_hist = elite_costs
 
         # Mean and covariance from elites
         mean = np.mean(elites, axis=0)
@@ -100,6 +118,7 @@ class EfficientCEM(SamplingBasedSolver):
             id_elite = self.rng.choice(self.N_elite)
             mean=elites[id_elite] + self.alpha_mean * (mean - elites[id_elite])
             cov += self.Id * self.std * self.it_no_improvement
+            # cov=cov + self.alpha_cov * (self.cov0 - cov)
         else:
             self.it_no_improvement = 0
 
