@@ -1,10 +1,12 @@
 import numpy as np
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from abc import ABC, abstractmethod
 from typing import Any, Tuple
 import time
 from tqdm import trange
 from scipy.stats import qmc
+import yaml
+import os
 
 from sbto.mj.nlp_mj import NLPBase, Array
 
@@ -20,6 +22,32 @@ class SolverState:
     temperature: float
     min_cost: float
     min_cost_all: float
+
+@dataclass
+class SolverConfig:
+    N_samples: int = 100
+    seed: int = 0
+    quasi_random: bool = True
+
+    def save_to_yaml(self, dir_path: str):
+        """Implements saving to YAML."""
+        FILENAME = "config.yaml"
+        os.makedirs(dir_path, exist_ok=True)
+        file_path = os.path.join(dir_path, FILENAME)
+        with open(file_path, "w") as f:
+            yaml.safe_dump(asdict(self), f, sort_keys=False)
+        print(f"Config saved to {file_path}")
+
+    @classmethod
+    def load_from_yaml(cls, path: str):
+        """Implements loading from YAML."""
+        with open(path, "r") as f:
+            data = yaml.safe_load(f)
+        return cls(**data)
+    
+    @property
+    def args(self):
+        return asdict(self)
 
 class SamplingBasedSolver(ABC):
     """
