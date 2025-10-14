@@ -1,7 +1,7 @@
 import os
 import numpy as np
 from sbto.mj.nlp_mj import NLP_MuJoCo
-import sbto.tasks.unitree_g1.g1_constants as const
+import sbto.tasks.unitree_g1.g1_constants as G1
 
 class G1_Stand(NLP_MuJoCo):
     SCENE = "scene_mjx_23dof_custom_collisions.xml"
@@ -11,14 +11,14 @@ class G1_Stand(NLP_MuJoCo):
                  interp_kind="linear",
                  Nthread = -1
                  ):
-        xml_path = os.path.join(const.XML_DIR_PATH, G1_Stand.SCENE)
+        xml_path = os.path.join(G1.XML_DIR_PATH, G1_Stand.SCENE)
         super().__init__(xml_path, T, Nknots, interp_kind, Nthread)
 
         keyframe_name = "knees_bent"
         self.set_initial_state_from_keyframe(keyframe_name)
 
-        self.q_min = np.array(const.RESTRICTED_JOINT_RANGE)[:, 0]
-        self.q_max = np.array(const.RESTRICTED_JOINT_RANGE)[:, 1]
+        self.q_min = np.array(G1.RESTRICTED_JOINT_RANGE)[:, 0]
+        self.q_max = np.array(G1.RESTRICTED_JOINT_RANGE)[:, 1]
         self.a = 0.5 * (self.q_min + self.q_max)
         self.b = 0.5 * (self.q_max - self.q_min)
 

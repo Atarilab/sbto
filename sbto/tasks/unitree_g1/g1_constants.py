@@ -1,11 +1,12 @@
 XML_DIR_PATH = "sbto/models/unitree_g1/"
 
 N_FEET = 2
+NDOFS = 23
 
 cnt_sensor_per_foot = 3
 cnt_sensor_dim_per_foot = 1 + 3
 
-class G1Sensors:
+class Sensors:
     FEET_CONTACTS = [
         "left_foot1",
         "left_foot2",
@@ -32,6 +33,31 @@ class G1Sensors:
     TORSO_UPRIGHT = "upvector_torso"
     TORSO_LINVEL = "global_linvel_torso"
     TORSO_ANGVEL = "global_angvel_torso"
+    TORQUES = [
+        "left_hip_pitch_joint",
+        "left_hip_roll_joint",
+        "left_hip_yaw_joint",
+        "left_knee_joint",
+        "left_ankle_pitch_joint",
+        "left_ankle_roll_joint",
+        "right_hip_pitch_joint",
+        "right_hip_roll_joint",
+        "right_hip_yaw_joint",
+        "right_knee_joint",
+        "right_ankle_pitch_joint",
+        "right_ankle_roll_joint",
+        "waist_yaw_joint",
+        "left_shoulder_pitch_joint",
+        "left_shoulder_roll_joint",
+        "left_shoulder_yaw_joint",
+        "left_elbow_joint",
+        "left_wrist_roll_joint",
+        "right_shoulder_pitch_joint",
+        "right_shoulder_roll_joint",
+        "right_shoulder_yaw_joint",
+        "right_elbow_joint",
+        "right_wrist_roll_joint",
+    ]
     
     cnt_status_id = [
         i for i in
@@ -77,3 +103,7 @@ RESTRICTED_JOINT_RANGE = (
     (-0.1, 2.0944),
     (-1.97222, 1.97222),
 )
+
+IDX_JOINT_POS = list(range(7, 7 + NDOFS))
+IDX_JOINT_VEL = list(range(36, 36 + NDOFS))
+HIP_KNEE = (0, 3, 6, 9)
