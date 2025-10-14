@@ -7,6 +7,11 @@ from sbto.mj.solver_base import SamplingBasedSolver, SolverState, SolverConfig
 
 @dataclass
 class CEMConfig(SolverConfig):
+    """
+    elite_frac: Fraction of samples considered elite.
+    alpha_mean: Smoothing coefficient for mean update.
+    alpha_cov: Smoothing coefficient for covariance update.
+    """
     elite_frac: float = 0.1
     alpha_mean: float = 0.8
     alpha_cov: float = 0.3
@@ -17,18 +22,13 @@ class CEM(SamplingBasedSolver):
     """
     def __init__(self,
                  nlp: NLPBase,
-                 N_samples: int = 100,
-                 elite_frac: float = 0.1,
-                 alpha_mean: float = 0.8,
-                 alpha_cov: float = 0.3,
-                 seed: int = 0,
-                 quasi_random: bool = True,
+                 cfg: CEMConfig,
                  ):
-        super().__init__(nlp, N_samples, seed, quasi_random)
-        self.elite_frac = elite_frac
+        super().__init__(nlp, cfg)
+        self.elite_frac = cfg.elite_frac
         self.N_elite = int(self.elite_frac * self.N_samples)
-        self.alpha_mean = alpha_mean
-        self.alpha_cov = alpha_cov
+        self.alpha_mean = cfg.alpha_mean
+        self.alpha_cov = cfg.alpha_cov
 
         # small diagonal regularization for covariance
         a, b = 1e-4, 1e-3

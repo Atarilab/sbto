@@ -12,24 +12,25 @@ from sbto.mj.nlp_mj import NLPBase, Array
 from sbto.utils.config import ConfigBase
 
 @dataclass
-class SolverState:
+class SolverState(ConfigBase):
     """
     State parameters for the solver.
     e.g. mean, covariance, temperature, etc.
     """
     mean: Array
     cov: Array
-    rng: Array
-    temperature: float
     min_cost: float
     min_cost_all: float
+
+    def __post_init__(self):
+        self._filename = "solver_state.yaml"
 
 @dataclass
 class SolverConfig(ConfigBase):
     N_samples: int = 100
     seed: int = 0
     quasi_random: bool = True
-    Nit = 100
+    N_it: int = 100
 
     def __post_init__(self):
         self._filename = "config_solver.yaml"
@@ -41,22 +42,21 @@ class SamplingBasedSolver(ABC):
     
     def __init__(self,
                  nlp : NLPBase,
-                 N_samples: int = 100,
-                 seed : int = 0,
-                 quasi_random : bool = True
+                 cfg : SolverConfig,
                  ):
         self.nlp = nlp
-        self.N_samples = N_samples
-        self.seed = np.array([seed])
+        self.N_samples = cfg.N_samples
+        self.N_it = cfg.N_it
+        self.seed = np.array([cfg.seed])
         self.rng = np.random.default_rng(self.seed)
-        self.quasi_random = quasi_random
+        self.quasi_random = cfg.quasi_random
         self.pbar_postfix = {}
 
     def init_state(self,
                    mean: Array | Any = None,
                    cov: Array | Any = None,
-                   temperature: float = 1.0,
-                   sigma_mult: float = 1.0) -> SolverState:
+                   sigma_mult: float = 1.0
+                   ) -> SolverState:
         """
         Initialize the solver state.
         """
@@ -68,8 +68,6 @@ class SamplingBasedSolver(ABC):
         return SolverState(
             mean=mean,
             cov=cov,
-            rng=self.seed,
-            temperature=temperature,
             min_cost=np.inf,
             min_cost_all=np.inf,
         )
@@ -97,10 +95,7 @@ class SamplingBasedSolver(ABC):
 
         return noise, state
 
-    def solve(self,
-              state: SolverState,
-              Nit: int = 100,
-              ) -> Tuple[SolverState, Array, float, Array]:
+    def solve(self, state: SolverState,) -> Tuple[SolverState, Array, float, Array]:
         """
         Solve the optimization problem.
         
@@ -118,7 +113,7 @@ class SamplingBasedSolver(ABC):
         all_costs = []
         min_cost_all = np.inf
         best_u_all = None
-        pbar = trange(Nit, desc="Optimizing", leave=True)
+        pbar = trange(self.N_it, desc="Optimizing", leave=True)
 
         start = time.time()
         for it in pbar:
@@ -139,7 +134,7 @@ class SamplingBasedSolver(ABC):
         duration = end - start
         print(f"Solving time: {duration:.2f}s")
 
-        all_costs = np.asarray(all_costs).reshape(Nit, -1)
+        all_costs = np.asarray(all_costs).reshape(self.N_it, -1)
         return states, best_u_all, min_cost_all, all_costs 
     
     def evaluate(self, u_traj: Array) -> Tuple[Array, Array, Array, float]:
