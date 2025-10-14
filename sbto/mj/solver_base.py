@@ -29,6 +29,10 @@ class SolverConfig(ConfigBase):
     N_samples: int = 100
     seed: int = 0
     quasi_random: bool = True
+    Nit = 100
+
+    def __post_init__(self):
+        self._filename = "config_solver.yaml"
 
 class SamplingBasedSolver(ABC):
     """

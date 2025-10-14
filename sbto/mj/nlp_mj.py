@@ -2,9 +2,20 @@ import numpy as np
 import mujoco
 from mujoco import rollout
 from typing import Tuple, Union, Optional, List
-from sbto.mj.nlp_base import NLPBase, Array, CostFn, IntArray
 import copy
 from multiprocessing import cpu_count
+from sbto.mj.nlp_base import NLPBase, Array, CostFn, IntArray
+from sbto.utils.config import ConfigBase, dataclass
+
+@dataclass
+class ConfigNLP_Mj(ConfigBase):
+    T: int
+    Nknots: int
+    interp_kind: str = "linear"
+    Nthread: int = -1
+
+    def __post_init__(self):
+        self._filename = "config_nlp.yaml"
 
 class NLP_MuJoCo(NLPBase):
     def __init__(

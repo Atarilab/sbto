@@ -1,17 +1,20 @@
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 import yaml
 import os
 
 @dataclass
 class ConfigBase:
+    _filename: str = field(init=False, repr=False)
+
+    def __post_init__(self):
+        self._filename = "config.yaml"
 
     def save_to_yaml(self, dir_path: str):
         """Implements saving to YAML."""
-        FILENAME = "config.yaml"
         os.makedirs(dir_path, exist_ok=True)
-        file_path = os.path.join(dir_path, FILENAME)
+        file_path = os.path.join(dir_path, self._filename)
         with open(file_path, "w") as f:
-            yaml.safe_dump(asdict(self), f, sort_keys=False)
+            yaml.safe_dump(self.args, f, sort_keys=False)
         print(f"Config saved to {file_path}")
 
     @classmethod
@@ -23,4 +26,4 @@ class ConfigBase:
     
     @property
     def args(self):
-        return asdict(self)
+        return {k: v for k, v in asdict(self).items() if k != "_filename"}
