@@ -64,7 +64,7 @@ class NLP_MuJoCo(NLPBase):
         self.Nobs = 0
 
         # rollout variables
-        self._chunk_size = 16
+        self._chunk_size = 2
         self._persistent_pool = True
 
     def set_initial_state_from_keyframe(self, keyframe_name: str) -> None:
