@@ -183,3 +183,79 @@ def plot_costs(
     # When running on the server
     else:
         plt.show()
+
+
+def plot_mean_cov(
+    time,
+    mean_knots, 
+    knots, 
+    cov,
+    u_traj,
+    Nu: int,
+    save_dir: str = ""
+    ):
+    """
+    Plot the mean, variance (diagonal of covariance), and best sample per control dimension.
+
+    Args:
+        time: (T) time array
+        mean_knots: (Nknots, Nu) array of mean controls over time
+        knots: (Nknots, Nu) array of best (elite) controls over time
+        cov: (Nknots, Nu, Nu) full covariance matrices (only diagonals are used for plotting)
+        u_traj: (T, Nu) full pd target trajectory
+        Nu: number of control dimensions
+        save_dir: Save direectory path
+    """
+    # ---------------- FIGURE: Control distribution ----------------
+    fig, axs = plt.subplots(Nu, 1, figsize=(10, 2.5 * Nu), sharex=True)
+    plt.title("Control Distribution", fontsize=14, fontweight="bold")
+
+    # Handle single-control case
+    if Nu == 1:
+        axs = [axs]
+
+    # Ensure correct shapes
+    mean_knots = mean_knots.reshape(-1, Nu)
+    knots = knots.reshape(-1, Nu)
+    diag_cov = np.diag(cov).reshape(-1, Nu)
+
+    T = mean_knots.shape[0]
+
+    start, end = time[0], time[-1]
+    Nknots = knots.shape[0]
+    t_knots = np.linspace(start, end, Nknots, endpoint=True)
+
+    # Plot each control dimension
+    for i in range(Nu):
+        ax = axs[i]
+        mean = mean_knots[:, i]
+        std = np.sqrt(diag_cov[:, i])
+
+        ax.plot(time, u_traj[:, i], label=f"u[{i}]")
+
+        ax.scatter(t_knots, mean, label=f"mean u[{i}]", color="C0", marker='o',)
+        ax.fill_between(t_knots, mean - std, mean + std, color="C0", alpha=0.3, label="±1σ")
+        ax.scatter(t_knots, knots[:, i], label="best", color="C1", marker='x',)
+
+        ax.set_ylabel(f"$u_{i}$")
+        ax.grid(True, linestyle="--", alpha=0.5)
+        ax.legend()
+
+    axs[-1].set_xlabel("Time step")
+
+    plt.tight_layout()
+
+    if save_dir:
+        if not os.path.exists(save_dir):
+            Warning(f"Directory {save_dir} does not exists.")
+            os.makedirs(save_dir)
+        
+        filename = "control_knots_final_distrib"
+        format = "pdf"
+        filepath = os.path.join(save_dir, filename) + f".{format}"
+        plt.savefig(fname=filepath, format=format)
+        print("Figure saved to", filepath)
+
+    # When running on the server
+    else:
+        plt.show()
