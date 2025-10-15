@@ -2,7 +2,7 @@ import os
 import numpy as np
 from sbto.mj.nlp_mj import NLP_MuJoCo
 import sbto.tasks.unitree_g1.g1_constants as G1
-from sbto.utils.gait import humanoid_trot, generate_contact_plan
+from sbto.utils.gait import GaitConfig, generate_contact_plan
 from sbto.mj.nlp_mj import ConfigNLP_Mj, dataclass
 
 @dataclass
@@ -15,7 +15,11 @@ class ConfigG1Gait(ConfigNLP_Mj):
 
     # --- Desired motion parameters ---
     v_des: tuple = (0.5, 0.0, 0.0)  # Desired torso linear velocity [vx, vy, vz]
-    gait_type: str = "humanoid_trot"      # Gait pattern name
+
+    # --- Desired gait parameters ---
+    stance_ratio: tuple = (0.56, 0.56)
+    phase_offset: tuple = (0.5, 0.0)
+    nominal_period = 0.9
 
     # --- State costs ---
     joint_pos_weight: float = 0.1
@@ -131,8 +135,15 @@ class G1_Gait(NLP_MuJoCo):
         )
 
         # --- Contact plan ---
+        gait = GaitConfig(
+            G1.N_FEET,
+            cfg.stance_ratio,
+            cfg.phase_offset,
+            cfg.nominal_period
+            )
         self.set_contact_sensor_id(G1.Sensors.FEET_CONTACTS, G1.Sensors.cnt_status_id)
-        self.contact_plan = generate_contact_plan(cfg.T, self.dt, humanoid_trot).repeat(G1.cnt_sensor_per_foot, axis=-1)
+        self.contact_plan = generate_contact_plan(cfg.T, self.dt, gait)
+        self.contact_plan = self.contact_plan.repeat(G1.cnt_sensor_per_foot, axis=-1)
         
         self.add_sensor_cost(
             G1.Sensors.FEET_CONTACTS,
