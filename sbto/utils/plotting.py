@@ -1,3 +1,4 @@
+from typing import List, Optional
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
@@ -257,5 +258,70 @@ def plot_mean_cov(
         print("Figure saved to", filepath)
 
     # When running on the server
+    else:
+        plt.show()
+
+def plot_contact_plan(
+    contact_array: Array,
+    ref_array: Optional[Array] = None,
+    ee_labels: List[str] = [],
+    dt: float = 0.01,
+    size: int = 15,
+    save_dir: str = ""
+    ):
+    """
+    Visualize quadruped contact plan with optional reference.
+
+    Args:
+        contact_array (np.ndarray): shape [T, N_eeff], 0/1 realized contact status.
+        ref_array (np.ndarray): optional reference contact plan, same shape.
+        ee_labels (list of str): optional names for end-effectors.
+        dt (float): 
+    """
+    T, N = contact_array.shape
+    if len(ee_labels) == 0:
+        ee_labels = [f"EE {i}" for i in range(N)]
+
+    fig, ax = plt.subplots(figsize=(8, N * 0.6))
+
+    def draw_contacts(array, color, alpha=1.0, zorder=1, height=0.6):
+        for i in range(N):
+            y = N - 1 - i
+            in_contact = array[:, i]
+            starts = np.where(np.diff(np.pad(in_contact, (1, 0))) == 1)[0] * dt
+            ends = np.where(np.diff(np.pad(in_contact, (0, 1))) == -1)[0] * dt
+            for s, e in zip(starts, ends):
+                ax.barh(y, e - s, left=s, height=height,
+                        color=color, alpha=alpha, zorder=zorder)
+
+    # Draw reference first (background)
+    if ref_array is not None:
+        draw_contacts(ref_array, color="lightgray", alpha=1.0, zorder=1, height=0.8)
+
+    # Draw realized on top (foreground)
+    draw_contacts(contact_array, color="dimgray", alpha=1.0, zorder=2, height=0.4)
+
+    ax.set_xlim(0, T * dt)
+    ax.set_ylim(-0.5, N - 0.5)
+    ax.tick_params(axis='y', labelsize=size-2)
+    ax.tick_params(axis='x', labelsize=size-2)
+    ax.set_yticks(range(N))
+    ax.set_yticklabels(labels=ee_labels[::-1])
+    ax.set_xlabel("Time (s)",  size=size)
+    ax.set_title("Contact Sequence (reference vs realized)", size=size+2)
+    ax.grid(True, axis="x", linestyle="--", alpha=0.5)
+    plt.tight_layout()
+
+    if save_dir:
+        if not os.path.exists(save_dir):
+            Warning(f"Directory {save_dir} does not exists.")
+            os.makedirs(save_dir)
+        
+        filename = "contact_achieved_vs_planed"
+        format = "pdf"
+        filepath = os.path.join(save_dir, filename) + f".{format}"
+        plt.savefig(fname=filepath, format=format)
+        print("Figure saved to", filepath)
+
     else:
         plt.show()
