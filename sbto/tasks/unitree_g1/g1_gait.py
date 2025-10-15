@@ -131,6 +131,7 @@ class G1_Gait(NLP_MuJoCo):
         )
 
         # --- Contact plan ---
+        self.set_contact_sensor_id(G1.Sensors.FEET_CONTACTS, G1.Sensors.cnt_status_id)
         self.contact_plan = generate_contact_plan(cfg.T, self.dt, humanoid_trot).repeat(G1.cnt_sensor_per_foot, axis=-1)
         
         self.add_sensor_cost(
