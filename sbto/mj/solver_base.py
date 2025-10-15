@@ -9,10 +9,10 @@ import yaml
 import os
 
 from sbto.mj.nlp_mj import NLPBase, Array
-from sbto.utils.config import ConfigBase
+from sbto.utils.config import ConfigBase, ConfigNPZBase
 
 @dataclass
-class SolverState(ConfigBase):
+class SolverState(ConfigNPZBase):
     """
     State parameters for the solver.
     e.g. mean, covariance, temperature, etc.
@@ -23,7 +23,7 @@ class SolverState(ConfigBase):
     min_cost_all: float
 
     def __post_init__(self):
-        self._filename = "solver_state.yaml"
+        self._filename = "solver_init_state.npz"
 
 @dataclass
 class SolverConfig(ConfigBase):
@@ -50,6 +50,8 @@ class SamplingBasedSolver(ABC):
         self.seed = np.array([cfg.seed])
         self.rng = np.random.default_rng(self.seed)
         self.quasi_random = cfg.quasi_random
+
+        self.it = 0
         self.pbar_postfix = {}
 
     def init_state(self,
@@ -116,7 +118,7 @@ class SamplingBasedSolver(ABC):
         pbar = trange(self.N_it, desc="Optimizing", leave=True)
 
         start = time.time()
-        for it in pbar:
+        for self.it in pbar:
             eps, state = self.multivariate_normal(state)
 
             state, costs, best_u = self.update(state, eps)
