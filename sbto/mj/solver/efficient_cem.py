@@ -52,7 +52,7 @@ class EfficientCEM(SamplingBasedSolver):
         self.all_samples[self.N_elite:] = eps
 
         # Shift away elites: more exploration
-        if not self.elites is None:
+        if self.it > 0:
             id_elite = self.rng.choice(self.N_elite)
             self.all_samples[:self.N_elite] = self.elites + (self.elites - self.elites[id_elite]) * self.rng.uniform(0., 1., size=(self.N_elite, 1)) * np.sqrt(1+self.it_no_improvement)
         # First iteration
