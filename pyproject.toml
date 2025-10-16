@@ -15,6 +15,10 @@ dependencies = [
     "numpy>=2.3.3",
     "tqdm>=4.66",
     "mujoco>=3.3.5",
+    "scipy>=1.16.2",
+    "pyyaml",
+    "matplotlib",
+    "opencv",
 ]
 
 [project.optional-dependencies]
