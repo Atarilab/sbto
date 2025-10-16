@@ -21,6 +21,9 @@ class ConfigAbstract:
     def args(self):
         return {k: v for k, v in asdict(self).items() if not k.startswith("_")}
     
+    def set_filename(self, filename: str) -> None:
+        self._filename = filename
+    
 @dataclass
 class ConfigBase(ConfigAbstract):
 
@@ -66,7 +69,7 @@ class ConfigNPZBase(ConfigAbstract):
                 args[k] = v
 
         np.savez(file_path, **args)
-        print(f"Config saved to {file_path}")
+        # print(f"Config saved to {file_path}")
 
     @classmethod
     def load(cls, path: str):

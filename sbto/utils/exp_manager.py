@@ -10,6 +10,7 @@ from sbto.utils.viewer import render_and_save_trajectory
 
 EXP_DIR = "./runs"
 TRAJ_FILENAME = "time_x_u_traj"
+SOLVER_STATE_DIR = "./solver_state"
 
 def get_date_time() -> str:
     now = datetime.now()
@@ -56,9 +57,15 @@ def save_results(
     u_traj,
     obs_traj,
     knots,
-    solver_state,
+    all_solver_states,
     all_costs,
     ) -> None:
+
+    # Save all solver states
+    solver_state_dir = os.path.join(dir_path, SOLVER_STATE_DIR)
+    for i, s in enumerate(all_solver_states):
+        s.set_filename(f"solver_state_{i}.npz")
+        s.save(solver_state_dir)
 
     time, state_traj = x_traj[:, 0], x_traj[:, 1:]
 
@@ -71,9 +78,9 @@ def save_results(
 
     plot_mean_cov(
         time,
-        solver_state[-1].mean,
+        all_solver_states[-1].mean,
         knots,
-        solver_state[-1].cov,
+        all_solver_states[-1].cov,
         u_traj,
         Nu=nlp.Nu,
         save_dir=dir_path,
@@ -167,7 +174,7 @@ def run_experiments(
             exp_name = nlp.__name__
             rundir = create_dirs(exp_name, description)
             # save configs
-            for c in [cfg_n, cfg_s, init_state_solver]:
+            for c in [cfg_n, cfg_s]:
                 c.save(rundir)
 
             # run optimization

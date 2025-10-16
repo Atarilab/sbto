@@ -41,7 +41,7 @@ class NLP_MuJoCo(NLPBase):
         if Nthread == -1:
             self.Nthread = cpu_count()
         else:
-            self.Nthread = Nthread if cpu_count() > Nthread > 0 else 1
+            self.Nthread = Nthread if cpu_count() > Nthread > 0 else cpu_count()
         print(f"Using {self.Nthread} threads for MuJoCo simulation.")
 
         self.dt = self.mj_model.opt.timestep

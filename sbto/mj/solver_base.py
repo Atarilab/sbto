@@ -5,8 +5,7 @@ from typing import Any, Tuple
 import time
 from tqdm import trange
 from scipy.stats import qmc
-import yaml
-import os
+from copy import deepcopy
 
 from sbto.mj.nlp_mj import NLPBase, Array
 from sbto.utils.config import ConfigBase, ConfigNPZBase
@@ -23,7 +22,7 @@ class SolverState(ConfigNPZBase):
     min_cost_all: float
 
     def __post_init__(self):
-        self._filename = "solver_init_state.npz"
+        self._filename = "solver_state.npz"
 
 @dataclass
 class SolverConfig(ConfigBase):
@@ -111,7 +110,7 @@ class SamplingBasedSolver(ABC):
             float: Cost of best control
             Array: All costs of all iterations [Nit, N_samples]
         """
-        states = []
+        states = [deepcopy(state)]
         all_costs = []
         min_cost_all = np.inf
         best_u_all = None
@@ -122,7 +121,7 @@ class SamplingBasedSolver(ABC):
             eps, state = self.multivariate_normal(state)
 
             state, costs, best_u = self.update(state, eps)
-            states.append(state)
+            states.append(deepcopy(state))
             
             if state.min_cost_all < min_cost_all:
                 min_cost_all = state.min_cost_all
