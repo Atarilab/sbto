@@ -198,30 +198,21 @@ class NLP_MuJoCo(NLPBase):
             ref_values_terminal,
             weights_terminal,
             )
-        
-    def get_q_des_from_u_traj(self, act: Array) -> Array:
-        action_scale = 0.5
-        q_des = np.clip(
-            self.a + action_scale * act * self.b,
-            self.q_min,
-            self.q_max
-            )
-        return q_des
 
-    def _rollout_dynamics(self, u_traj: Array) -> Tuple[Array, Array, Array]:
+    def _rollout_dynamics(self, pd_target_traj: Array) -> Tuple[Array, Array, Array]:
         """
         Rollout the dynamics with the given control trajecotries [-1, T, Nu].
         Returns state [-1, T, Nu], control [-1, T, Nu] and observations [-1, T, Nobs] trajectories.
         """
-        if self.N_allocated != u_traj.shape[0]:
-            self._init_batches(u_traj.shape[0])
+        if self.N_allocated != pd_target_traj.shape[0]:
+            self._init_batches(pd_target_traj.shape[0])
         else:
             self._reset_data()
 
         rollout.rollout(self.mj_models,
                         self.mj_datas,
                         self.initial_states,
-                        control=self.get_q_des_from_u_traj(u_traj),
+                        control=pd_target_traj,
                         nstep=self.T,
                         state=self.state_rollout,
                         sensordata=self.sensordata_rollout, 
@@ -229,7 +220,7 @@ class NLP_MuJoCo(NLPBase):
                         persistent_pool=self._persistent_pool,
                         chunk_size=self._chunk_size
                         )
-        return self.state_rollout, u_traj, self.sensordata_rollout
+        return self.state_rollout, pd_target_traj, self.sensordata_rollout
     
     def get_sensor_data(
         self,

@@ -279,6 +279,22 @@ class NLPBase(ABC):
         """
         u_traj = self.interpolate(u_knots.reshape(-1, self.Nknots, self.Nu))
         return self._rollout_dynamics(u_traj)
+    
+    def get_rollout_data(self, knots_qd_traj: Array) -> Tuple[Array, Array, Array, float]:
+        """
+        Evaluate joint target trajectory and returns rollout data.
+        Args:
+            -qd_traj [N, Nknots*Nu]
+        """
+        knots_qd_traj = knots_qd_traj.reshape(-1, self.Nvars_u)
+        x_traj, knots_qd_traj, obs_traj = self.rollout(knots_qd_traj)
+        cost = self.cost(x_traj, knots_qd_traj, obs_traj)
+        return (
+            np.squeeze(x_traj),
+            np.squeeze(knots_qd_traj),
+            np.squeeze(obs_traj),
+            np.squeeze(cost),
+        )
 
     @abstractmethod
     def _rollout_dynamics(self, u_traj: Array) -> Tuple[Array, Array, Array]:

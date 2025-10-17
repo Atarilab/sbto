@@ -35,7 +35,9 @@ class ConfigBase(ConfigAbstract):
         os.makedirs(dir_path, exist_ok=True)
         file_path = os.path.join(dir_path, self._filename)
         with open(file_path, "w") as f:
-            yaml.safe_dump(self.args, f, sort_keys=False)
+            args = self.args
+            args["name"] = self.__class__.__name__
+            yaml.safe_dump(args, f, sort_keys=False)
         print(f"Config saved to {file_path}")
 
     @classmethod

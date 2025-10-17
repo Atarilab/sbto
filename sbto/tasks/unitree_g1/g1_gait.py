@@ -17,26 +17,26 @@ class ConfigG1Gait(ConfigNLP_Mj):
     v_des: tuple = (0.5, 0.0, 0.0)  # Desired torso linear velocity [vx, vy, vz]
 
     # --- Desired gait parameters ---
-    stance_ratio: tuple = (0.56, 0.56)
+    stance_ratio: tuple = (0.55, 0.55)
     phase_offset: tuple = (0.5, 0.0)
     nominal_period = 0.9
 
     # --- State costs ---
-    joint_pos_weight: float = 0.1
-    joint_pos_weight_terminal: float = 25.
+    joint_pos_weight: float = 0.
+    joint_pos_weight_terminal: float = 50.
 
     joint_vel_weight: float = 0.001
 
     # --- Torso position cost ---
     torso_pos_weight: float = 1.
-    torso_pos_weight_terminal: float = 500.0
+    torso_pos_weight_terminal: float = 1000.0
 
     # --- Torso XY tracking cost ---
     torso_xy_weight: float = 10.
     torso_xy_weight_terminal: float = 100.0
 
     # --- Torso linear velocity cost ---
-    torso_linvel_weight: tuple = (1., 1., 2.0)
+    torso_linvel_weight: tuple = (2.0, 2.0, 2.0)
     torso_linvel_weight_terminal: tuple = (10.0, 10.0, 20.0)
 
     # --- Torso angular velocity cost ---
@@ -49,7 +49,7 @@ class ConfigG1Gait(ConfigNLP_Mj):
 
     # --- Contact plan and cost ---
     contact_weight: float = 10.0
-    contact_weight_term: float = 100.0
+    contact_weight_term: float = 10.0
     contact_force_weight: float = 1.0e-5
 
     # --- Control cost ---
@@ -188,8 +188,3 @@ class G1_Gait(NLP_MuJoCo):
     @staticmethod
     def quat_dist(var, ref, weights) -> float:
         return np.sum(weights[:, 0] * (1.0 - np.square(np.sum(var * ref[None, ...], axis=-1))), axis=(-1))
-
-    def get_q_des_from_u_traj(self, act):
-        act = np.clip(act * self.action_scale, -1, 1)        
-        q_des = np.where(act < 0, act * self.a_min, act * self.a_max) + self.q_nom
-        return q_des
