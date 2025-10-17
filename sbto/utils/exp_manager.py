@@ -1,5 +1,5 @@
 import os
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 import numpy as np
 from datetime import datetime
 from copy import copy
@@ -102,6 +102,7 @@ def save_results(
         )
     
     contact_realized = nlp.get_contact_status(obs_traj)
+    contact_realized[contact_realized > 1] = 1
 
     if len(contact_realized) > 0:
         contact_plan = nlp.contact_plan if hasattr(nlp, "contact_plan") else None
@@ -157,8 +158,8 @@ def run_experiments(
     cfg_nlp,
     solver,
     cfg_solver,
-    init_state_solver,
-    description: str,
+    init_state_solver: Optional[str] = None,
+    description: Optional[str] = None,
     ):
 
     if not isinstance(cfg_solver, list):
@@ -170,34 +171,37 @@ def run_experiments(
     for cfg_s in cfg_solver:
         for cfg_n in cfg_nlp:
 
-            # create run dir
-            exp_name = nlp.__name__
-            rundir = create_dirs(exp_name, description)
-            # save configs
-            for c in [cfg_n, cfg_s]:
-                c.save(rundir)
+            if not description is None: 
+                # create run dir
+                exp_name = nlp.__name__
+                rundir = create_dirs(exp_name, description)
+                # save configs
+                for c in [cfg_n, cfg_s]:
+                    c.save(rundir)
 
             # run optimization
             n = nlp(cfg_n)
             s = solver(nlp=n, cfg=cfg_s)
-            solver_states, best_knots, cost, all_costs = s.solve(init_state_solver)
+            if init_state_solver is None:
+                init_state_solver = s.init_state()
+            solver_states, best_qdes_knots, cost, all_costs = s.solve(init_state_solver)
 
             # get final trajectories
             print("Best cost:", cost)
-            x_traj, u_traj, obs_traj, cost = s.evaluate(best_knots)
-            print("evaluate cost:", cost)
+            x_traj, u_traj, obs_traj, cost = n.get_rollout_data(best_qdes_knots)
 
-            # save plots and video
-            save_results(
-                rundir,
-                n,
-                x_traj,
-                u_traj,
-                obs_traj,
-                best_knots,
-                solver_states,
-                all_costs,
-            )
+            if not description is None: 
+                # save plots and video
+                save_results(
+                    rundir,
+                    n,
+                    x_traj,
+                    u_traj,
+                    obs_traj,
+                    best_qdes_knots,
+                    solver_states,
+                    all_costs,
+                )
             
 
 
