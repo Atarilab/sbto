@@ -86,22 +86,56 @@ class BetaMultivariateCopulas(SamplerAbstract):
         u = norm.cdf(z)
         b_multivariate = beta.ppf(u, a, b)
         return b_multivariate
-    
-    def estimate_params(self, samples):
+
+    @staticmethod    
+    def mode(a, b):
+        return (a - 1.) / (a + b - 2.)
+
+    @staticmethod 
+    def delta_v(a, b, c):
         """
-        samples [N, D]
+        How much the variance is reduced when applying mode regularization.
+        """
+        m = BetaMultivariateCopulas.mode(a, b)
+        p = a*b
+        s = a+b
+        A = p / (s**2 * (s+1))
+        B = (a + c*m) * (b + c * (1.-m))
+        B /= (s + c)**2 * (s + c + 1.)
+        return A - B
+
+    def estimate_params(self, samples, eps=1e-6, c=2.):
+        """
+        Estimate Beta parameters (a, b) and Gaussian copula correlation Sigma
+        using method of moments. Robust version ensuring positivity.
+        samples: array of shape (N, D)
         """
         m = np.mean(samples, axis=0)
         v = np.var(samples, axis=0)
-        temp = m * (1 - m) / v - 1
+
+        # Compute a, b
+        temp = m * (1 - m) / v - 1.0
         a = m * temp
         b = (1 - m) * temp
-        mask = v <= 0
-        a[mask], b[mask] = np.nan, np.nan
+        
+        # a, b regularization
+        # adding a delta_a delta_b such that:
+        # mode(a, b) = mode(a + delta_a, b + delta_b)
+        # delta_a + delta_b = c > 0
+        mode = BetaMultivariateCopulas.mode(a, b)
+        mode = np.clip(mode, eps, 1.0 - eps)
+        # Since this reduces the variance,
+        # we regularize only when empirical v is below the
+        # delta_v
+        delta_v = BetaMultivariateCopulas.delta_v(a, b, c)
+        a = np.where(v > delta_v, a + c * mode, a)
+        b = np.where(v > delta_v, b + c * (1. - mode), b)
 
-        # Use betainc directly (identical to beta.cdf)
+        # Transform to copula space
         u = betainc(a, b, samples)
-        z = norm.ppf(np.clip(u, 1e-10, 1 - 1e-10))
+        u = np.clip(u, eps, 1 - eps)  # avoid infinities in norm.ppf
+
+        z = norm.ppf(u)
         Sigma = np.corrcoef(z, rowvar=False)
         return a, b, Sigma
 
