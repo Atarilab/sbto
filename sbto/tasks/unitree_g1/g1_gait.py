@@ -8,7 +8,7 @@ from sbto.mj.nlp_mj import ConfigNLP_Mj, dataclass
 @dataclass
 class ConfigG1Gait(ConfigNLP_Mj):
     # Scene
-    scene_file: str = "scene_mjx_23dof_custom_collisions.xml"
+    scene_file: str = "scene_mjx_23dof.xml"
 
     # --- Joint reference ---
     keyframe_name: str = "knees_bent"
