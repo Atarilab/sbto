@@ -124,7 +124,7 @@ def render_and_save_trajectory(
         # Render frame
         if n_frames < (timestep * fps):
             n_frames += 1
-            renderer.update_scene(mj_data, camera="track")
+            renderer.update_scene(mj_data)
             frame = renderer.render()
             # Convert RGB to BGR for OpenCV and write
             frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
