@@ -18,7 +18,7 @@ dependencies = [
     "scipy>=1.16.2",
     "pyyaml",
     "matplotlib",
-    "opencv",
+    "opencv-python",
 ]
 
 [project.optional-dependencies]
