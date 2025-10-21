@@ -1,6 +1,6 @@
 import os
 
-from sbto.tasks.unitree_g1.go2_stand import G1_Gait
+from sbto.tasks.unitree_g1.go2_stand import Go2_Stand
 from sbto.mj.solver.efficient_cem import EfficientCEM
 from sbto.utils.plotting import plot_state_control, plot_costs
 from sbto.utils.viewer import render_and_save_trajectory
@@ -11,7 +11,7 @@ def main():
     T = 400
     Nknots = 5 #Nknots = number of control interpolation points.
     Nit = 100 # Nit = number of optimization iterations (how long the optimizer keeps improving).
-    nlp = G1_Gait(T, Nknots, interp_kind="cubic", Nthread=-1)
+    nlp = Go2_Stand(T, Nknots, interp_kind="cubic", Nthread=-1)
     nlp._chunk_size = 2
 
     solver = EfficientCEM(
@@ -44,7 +44,7 @@ def main():
     nlp.mj_data,
     x_traj[:, 0],
     x_traj[:, 1:],
-    save_path=os.path.join(result_dir, "g1_gait_go2.mp4")  
+    save_path=os.path.join(result_dir, "Go2_Stand.mp4")  
 )
     plot_costs(
         all_costs,
