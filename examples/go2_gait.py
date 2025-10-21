@@ -28,7 +28,7 @@ def main():
     states, best_u, cost, all_costs = solver.solve(state, Nit)
     print("Best cost:", cost)
 
-    result_dir = "./plots_go2"
+    result_dir = "./plots_go2_gait"
     os.makedirs(result_dir, exist_ok=True)
 
     x_traj, u_traj, obs_traj, cost = solver.evaluate(best_u)
