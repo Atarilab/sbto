@@ -2,7 +2,7 @@ import os
 from typing import List, Optional, Tuple
 import numpy as np
 from datetime import datetime
-from copy import copy
+from copy import copy, deepcopy
 
 from sbto.utils.config import ConfigBase
 from sbto.utils.plotting import plot_costs, plot_mean_cov, plot_state_control, plot_contact_plan
@@ -10,7 +10,7 @@ from sbto.utils.viewer import render_and_save_trajectory
 
 EXP_DIR = "./runs"
 TRAJ_FILENAME = "time_x_u_traj"
-SOLVER_STATE_DIR = "./solver_state"
+SOLVER_STATES_DIR = "./solver_states"
 
 def get_date_time() -> str:
     now = datetime.now()
@@ -62,10 +62,10 @@ def save_results(
     ) -> None:
 
     # Save all solver states
-    solver_state_dir = os.path.join(dir_path, SOLVER_STATE_DIR)
-    for i, s in enumerate(all_solver_states):
-        s.set_filename(f"solver_state_{i}.npz")
-        s.save(solver_state_dir)
+    solver_state_dir = os.path.join(dir_path, SOLVER_STATES_DIR)
+    for i, state in enumerate(all_solver_states):
+        state.set_filename(f"solver_state_{i}.npz")
+        state.save(solver_state_dir)
 
     time, state_traj = x_traj[:, 0], x_traj[:, 1:]
 
@@ -102,7 +102,6 @@ def save_results(
         )
     
     contact_realized = nlp.get_contact_status(obs_traj)
-    contact_realized[contact_realized > 1] = 1
 
     if len(contact_realized) > 0:
         contact_plan = nlp.contact_plan if hasattr(nlp, "contact_plan") else None
@@ -126,6 +125,7 @@ def sweep_param(
     name: str,
     range: Tuple,
     num: int,
+    axis: int | tuple = 0,
     logscale: bool = False
     ) -> List[ConfigBase]:
     """
@@ -136,18 +136,45 @@ def sweep_param(
     if not name in config.args:
         raise ValueError(f"Parameter {name} not found.")
     # Check param is float
-    if not isinstance(config.args[name], float):
-        raise ValueError(f"Parameter {name} should be a float.")
+    param = config.args[name]
+    arr_param = np.asarray(param)
+
+    has_multiple_dim = np.sum(arr_param.shape) > 1
+    is_tuple = isinstance(param, tuple)
+    is_list = isinstance(param, list)
+    is_float = isinstance(param, float)
+    is_int = isinstance(param, int)
+    if not any((is_float, is_int, is_tuple, is_list)):
+        raise ValueError(f"Parameter {name} should be a float, an int or an iterable.")
 
     start, stop = range
     if not logscale:
-        values = np.linspace(start, stop, num, endpoint=True)
+        sweep_values = np.linspace(start, stop, num, endpoint=True)
     else:
-        values = np.logspace(start, stop, num, endpoint=True)
-    
+        sweep_values = np.logspace(start, stop, num, endpoint=True)
+
     configs = []
-    for v in values:
+    for v in sweep_values:
         cfg = copy(config)
+        if is_int:
+            v = int(v)
+        elif is_float:
+            v = float(v)
+        elif is_tuple:
+            if has_multiple_dim:
+                arr = arr_param.copy()
+                arr[axis] = v
+                v = tuple(arr.tolist())
+            else:
+                v = (v,)
+        elif is_list:
+            if has_multiple_dim:
+                arr = arr_param.copy()
+                arr[axis] = v
+                v = arr.tolist()
+            else:
+                v = [v]
+
         cfg.__setattr__(name, v)
         configs.append(cfg)
     
@@ -184,7 +211,7 @@ def run_experiments(
             s = solver(nlp=n, cfg=cfg_s)
             if init_state_solver is None:
                 init_state_solver = s.init_state()
-            solver_states, best_qdes_knots, cost, all_costs = s.solve(init_state_solver)
+            solver_states, best_qdes_knots, cost, all_costs = s.solve(deepcopy(init_state_solver))
 
             # get final trajectories
             print("Best cost:", cost)
@@ -203,6 +230,4 @@ def run_experiments(
                     all_costs,
                 )
             
-
-
 
