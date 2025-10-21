@@ -57,6 +57,7 @@ def save_results(
     u_traj,
     obs_traj,
     knots,
+    mean_knots,
     all_solver_states,
     all_costs,
     ) -> None:
@@ -78,7 +79,7 @@ def save_results(
 
     plot_mean_cov(
         time,
-        all_solver_states[-1].mean,
+        mean_knots,
         knots,
         all_solver_states[-1].cov,
         u_traj,
@@ -218,7 +219,8 @@ def run_experiments(
             print("Best cost:", cost)
             x_traj, u_traj, obs_traj, cost = n.get_rollout_data(best_qdes_knots)
 
-            if not description is None: 
+            if not description is None:
+                mean_knots = s.f_rescale(solver_states[-1].mean)
                 # save plots and video
                 save_results(
                     rundir,
@@ -227,8 +229,7 @@ def run_experiments(
                     u_traj,
                     obs_traj,
                     best_qdes_knots,
+                    mean_knots,
                     solver_states,
                     all_costs,
                 )
-            
-
