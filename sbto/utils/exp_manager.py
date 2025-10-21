@@ -102,6 +102,7 @@ def save_results(
         )
     
     contact_realized = nlp.get_contact_status(obs_traj)
+    contact_realized[contact_realized > 1] = 1
 
     if len(contact_realized) > 0:
         contact_plan = nlp.contact_plan if hasattr(nlp, "contact_plan") else None
