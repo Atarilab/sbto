@@ -104,7 +104,7 @@ class BetaMultivariateCopulas(SamplerAbstract):
         B /= (s + c)**2 * (s + c + 1.)
         return A - B
 
-    def estimate_params(self, samples, eps=1e-6, c=2.):
+    def estimate_params(self, samples, eps=1e-6, c=1.):
         """
         Estimate Beta parameters (a, b) and Gaussian copula correlation Sigma
         using method of moments. Robust version ensuring positivity.
@@ -112,6 +112,8 @@ class BetaMultivariateCopulas(SamplerAbstract):
         """
         m = np.mean(samples, axis=0)
         v = np.var(samples, axis=0)
+        # min_var = 1e-4
+        # v[v < min_var] = min_var
 
         # Compute a, b
         temp = m * (1 - m) / v - 1.0
@@ -122,14 +124,16 @@ class BetaMultivariateCopulas(SamplerAbstract):
         # adding a delta_a delta_b such that:
         # mode(a, b) = mode(a + delta_a, b + delta_b)
         # delta_a + delta_b = c > 0
-        mode = BetaMultivariateCopulas.mode(a, b)
-        mode = np.clip(mode, eps, 1.0 - eps)
+        # mode = BetaMultivariateCopulas.mode(a, b)
+        # mode = np.clip(mode, eps, 1.0 - eps)
         # Since this reduces the variance,
         # we regularize only when empirical v is below the
         # delta_v
-        delta_v = BetaMultivariateCopulas.delta_v(a, b, c)
-        a = np.where(v > delta_v, a + c * mode, a)
-        b = np.where(v > delta_v, b + c * (1. - mode), b)
+        # a += c * mode
+        # b += c * (1. - mode)
+        # delta_v = BetaMultivariateCopulas.delta_v(a, b, c)
+        # a = np.where(v > 2*delta_v, a + c * mode, a)
+        # b = np.where(v > 2*delta_v, b + c * (1. - mode), b)
 
         # Transform to copula space
         u = betainc(a, b, samples)
@@ -195,8 +199,10 @@ class KumaraswamyMultivariate(SamplerAbstract):
         eps = 1e-12
         x = np.clip(data, eps, 1 - eps)
 
-        log_pdf = np.log(a) + np.log(b) + (a - 1) * np.log(x) + (b - 1) * np.log(1 - x**a)
-        return -np.sum(log_pdf)
+        log_pdf = loga + logb + (a - 1) * np.log(x) + (b - 1) * np.log(1 - x**a)
+        reg_a, reg_b = 0.0, 1.
+
+        return -np.mean(log_pdf) + reg_b * logb + reg_a * loga
 
     @staticmethod
     def MLE_Kumaraswamy_1d(data, init=(0.0, 0.0)):
@@ -204,13 +210,12 @@ class KumaraswamyMultivariate(SamplerAbstract):
         Fit univariate Kumaraswamy distribution by MLE.
         Returns (a, b)
         """
-        f = lambda params, data: KumaraswamyMultivariate.kumaraswamy_nll(params, data) + (params[0] - init[0])**2 + (params[1] - init[1])**2
         res = minimize(
             KumaraswamyMultivariate.kumaraswamy_nll,
             x0=np.array(init),
             args=(data,),
             method="L-BFGS-B",
-            bounds=[(np.log(1e-4), np.log(1e5)), (np.log(1e-4), np.log(1e5))],
+            bounds=[(1e-4, np.log(1e5)), (1e-4, np.log(1e5))],
         )
         if not res.success:
             raise RuntimeError(f"MLE failed: {res.message}")
