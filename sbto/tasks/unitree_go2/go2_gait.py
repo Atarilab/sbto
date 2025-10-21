@@ -19,7 +19,7 @@ class Go2_Gait(NLP_MuJoCo):
         interp_kind="linear",
         Nthread=-1,
     ):
-        xml_path = os.path.join(const.XML_DIR_PATH, G1_Gait.SCENE)
+        xml_path = os.path.join(const.XML_DIR_PATH, Go2_Gait.SCENE)
         super().__init__(xml_path, T, Nknots, interp_kind, Nthread)
 
         # -------------------- initial state --------------------
