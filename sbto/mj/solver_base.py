@@ -104,7 +104,7 @@ class SamplingBasedSolver(ABC):
             self.q_max = self.nlp.q_max
             self.q_nom = self.nlp.q_nom
 
-        if not (np.all(self.q_min < self.q_nom) and  np.all(self.q_nom < self.q_max)):
+        if not (np.all(self.q_min <= self.q_nom) and  np.all(self.q_nom <= self.q_max)):
             raise ValueError("q_nom must be strictly inside (q_min, q_max)")
         
         self.q_range = self.q_max - self.q_min
