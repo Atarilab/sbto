@@ -1,6 +1,6 @@
 import os
 
-from sbto.tasks.unitree_g1.g1_stand_go2 import G1_Gait
+from sbto.tasks.unitree_g1.go2_stand import G1_Gait
 from sbto.mj.solver.efficient_cem import EfficientCEM
 from sbto.utils.plotting import plot_state_control, plot_costs
 from sbto.utils.viewer import render_and_save_trajectory
