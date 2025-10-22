@@ -1,7 +1,7 @@
 import os
 
 from sbto.tasks.unitree_g1.g1_gait import G1_Gait, ConfigG1Gait
-from sbto.mj.solver.cem import CEM, CEMConfig, CEMBeta, CEMBetaConfig
+from sbto.mj.solver.cem import CEM, CEMConfig
 from sbto.utils.exp_manager import run_experiments
 
 def main():
@@ -11,22 +11,22 @@ def main():
         Nthread=112,
         Nknots=15
     )
-    cfg_solver = CEMBetaConfig(
+    cfg_solver = CEMConfig(
         N_samples=1024,
         elite_frac=0.04,
-        alpha_mean=0.7,
+        alpha_mean=0.9,
         alpha_cov=0.1,
         seed=42,
         quasi_random=True,
         N_it=100,
-        kappa=15.
+        sigma0=0.2
     )
     run_experiments(
         G1_Gait,
         cfg_nlp,
-        CEMBeta,
+        CEM,
         cfg_solver,
-        description="cem_b"
+        description="cem"
     )
 
 if __name__ == "__main__":
