@@ -16,6 +16,8 @@ class CEMConfig(SolverConfig):
     elite_frac: float = 0.1
     alpha_mean: float = 0.8
     alpha_cov: float = 0.3
+    a: float = 1e-4
+    b: float = 1e-3
 
 class CEM(SamplingBasedSolver):
     """
@@ -32,7 +34,7 @@ class CEM(SamplingBasedSolver):
         self.alpha_cov = cfg.alpha_cov
 
         # small diagonal regularization for covariance
-        a, b = 1e-4, 1e-3
+        a, b = cfg.a, cfg.b
         self.Id = np.diag(np.linspace(a, b, self.nlp.Nknots).repeat(self.nlp.Nu))
 
     def get_elites(self, samples: Array, costs: Array) -> Tuple[Array, int]:

@@ -25,7 +25,7 @@
     <geom name="floor" size="0 0 0.01" type="plane" material="groundplane"/>
     <body name="box">
       <freejoint name="floating_box_joint"/>
-      <geom name="box" size="0.1 0.1 0.115" pos="0.4 0. 0.715" class="dynamic" mass="0.6"/>
+      <geom name="box" size="0.1 0.1 0.115" pos="0.35 0. 0.715" class="dynamic" mass="0.6"/>
     </body>
     <body name="table">
       <geom name="table" size="0.25 0.4 0.005" pos="0.5 0. 0.595" class="static"/>
@@ -35,6 +35,6 @@
 
   <include file="utils/no_hands/keyframes.xml"/>
   <include file="utils/no_hands/sensors.xml"/>
-  <include file="utils/no_hands/collision_box.xml"/>
+  <include file="utils/no_hands/collision.xml"/>
   
 </mujoco>

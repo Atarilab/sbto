@@ -5,7 +5,7 @@
                 <geom group="1" type="box" condim="3" contype="1" conaffinity="1" rgba="0.8 0.8 0.8 1"/>
             </default>
             <default class="dynamic">
-                <geom group="1" type="box" condim="3" contype="0" conaffinity="1" rgba="0.3 0.3 0.3 1" priority="1" friction="0.6 0.005 0.001"/>
+                <geom group="1" type="box" condim="3" contype="0" conaffinity="1" rgba="0.3 0.3 0.3 1" priority="0" solref="0.008 1." friction="0.6 0.003 0.001"/>
             </default>
         </default>
     </default>

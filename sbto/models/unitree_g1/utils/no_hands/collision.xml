@@ -79,24 +79,27 @@
     <!-- <pair name="left_hand_right_hand" geom1="left_hand_collision" geom2="right_hand_collision" condim="1"/> -->
 
     <!-- hands - box -->
-    <pair name="left_hand_box" geom1="left_hand_collision" geom2="box" solref="0.02 1.2" condim="3"/>
-    <pair name="right_hand_box" geom1="right_hand_collision" geom2="box" solref="0.02 1.2" condim="3"/>
+    <pair name="left_hand_box" geom1="left_hand_collision" geom2="box" solref="0.01 1." friction="1 1" condim="3"/>
+    <pair name="right_hand_box" geom1="right_hand_collision" geom2="box" solref="0.01 1." friction="1 1" condim="3"/>
     <!-- torso - box -->
     <pair name="torso_box" geom1="torso_collision" geom2="box" condim="1"/>
+    <!-- wrist - box -->
+    <pair name="left_wrist_box" geom1="left_wrist_collision" geom2="box" condim="1"/>
+    <pair name="right_wrist_box" geom1="right_wrist_collision" geom2="box" condim="1"/>
     
     <!-- hands - table -->
     <pair name="left_hand_table" geom1="left_hand_collision" geom2="table" condim="1"/>
     <pair name="right_hand_table" geom1="right_hand_collision" geom2="table" condim="1"/>
     <!-- torso - table -->
-    <pair name="torso_table" geom1="torso_collision" geom2="table" condim="1"/>
+    <!-- <pair name="torso_table" geom1="torso_collision" geom2="table" condim="1"/> -->
     <!-- pelvis - table -->
-    <pair name="pelvis_table" geom1="pelvis_collision" geom2="table" condim="1"/>
+    <!-- <pair name="pelvis_table" geom1="pelvis_collision" geom2="table" condim="1"/> -->
     <!-- arm - table -->
     <pair name="left_elbow_table" geom1="left_elbow_yaw_collision" geom2="table" condim="1"/>
     <pair name="right_elbow_table" geom1="right_elbow_yaw_collision" geom2="table" condim="1"/>
     <!-- hips - table -->
-    <pair name="left_hip_table" geom1="left_hip_collision" geom2="table" condim="1"/>
-    <pair name="right_hip_table" geom1="right_hip_collision" geom2="table" condim="1"/>
+    <!-- <pair name="left_hip_table" geom1="left_hip_collision" geom2="table" condim="1"/> -->
+    <!-- <pair name="right_hip_table" geom1="right_hip_collision" geom2="table" condim="1"/> -->
     
     
     <!-- foot - box -->

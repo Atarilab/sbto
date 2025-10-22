@@ -212,8 +212,10 @@ def run_experiments(
             n = nlp(cfg_n)
             s = solver(nlp=n, cfg=cfg_s)
             if init_state_solver is None:
-                init_state_solver = s.init_state()
-            solver_states, best_qdes_knots, cost, all_costs = s.solve(deepcopy(init_state_solver))
+                state_solver = s.init_state()
+            else:
+                state_solver = init_state_solver
+            solver_states, best_qdes_knots, cost, all_costs = s.solve(deepcopy(state_solver))
 
             # get final trajectories
             print("Best cost:", cost)

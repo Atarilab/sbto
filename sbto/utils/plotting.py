@@ -145,6 +145,9 @@ def plot_costs(
         title (str): Title for the plot.
     """
     all_costs = np.asarray(all_costs)
+    # max cost is max cost at iteration 0 (remove outliers)
+    max_lim_cost = 3. * np.mean(all_costs[0, :])
+    all_costs = np.clip(all_costs, None, max_lim_cost)
     Nit = all_costs.shape[0]
 
     plt.figure(figsize=(10, 5))
@@ -164,6 +167,7 @@ def plot_costs(
     plt.xlabel("Iteration")
     plt.ylabel("Cost")
     plt.yscale("log")
+    plt.ylim(top=max_lim_cost)
     plt.title(title)
     plt.grid(True, linestyle="--", alpha=0.6)
     plt.legend()
