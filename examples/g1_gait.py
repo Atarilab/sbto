@@ -1,10 +1,12 @@
 import os
 
 from sbto.tasks.unitree_g1.g1_gait import G1_Gait
-from sbto.mj.solver.cem import CEM
+from sbto.mj.solver.cem_old import CEM
 from sbto.mj.solver.efficient_cem import EfficientCEM
 from sbto.utils.plotting import plot_state_control, plot_costs
 from sbto.utils.viewer import render_and_save_trajectory
+from sbto.utils.plot_contact import plot_contact_achieved_vs_planned
+
 
 def main():
     T = 200
@@ -59,6 +61,7 @@ def main():
         nlp.Nu,
         save_dir=result_dir
         )
+    plot_contact_achieved_vs_planned(obs_traj, nlp)
 
 
 if __name__ == "__main__":

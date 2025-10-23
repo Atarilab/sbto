@@ -1,0 +1,3 @@
+Wed Oct 22 16:15:39 2025
+WARNING: Read error while reading 'sbto/models/unitree_g1/mjx_go2_position.xml'
+

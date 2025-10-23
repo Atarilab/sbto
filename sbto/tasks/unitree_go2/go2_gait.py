@@ -20,23 +20,23 @@ class Go2_Gait(NLP_MuJoCo):
         Nthread=-1,
     ):
         xml_path = os.path.join(const.XML_DIR_PATH, Go2_Gait.SCENE)
-        super().__init__(xml_path, T, Nknots, interp_kind, Nthread)
+        super().__init__(xml_path, T, Nknots, interp_kind, Nthread) #Loads the MuJoCo model
 
-        # -------------------- initial state --------------------
+        #  initial state
         self.set_initial_state_from_keyframe("home")
 
-        # -------------------- model sizes & indices --------------------
-        Nq = self.mj_model.nq
-        Nv = self.mj_model.nv
-        base_q = 7 if self.mj_model.jnt_type[0] == mujoco.mjtJoint.mjJNT_FREE else 0
-        base_v = 6 if base_q == 7 else 0
+        #  model sizes & indices 
+        Nq = self.mj_model.nq # number of generalized positions
+        Nv = self.mj_model.nv # number of generalized velocities
+        base_q = 7 if self.mj_model.jnt_type[0] == mujoco.mjtJoint.mjJNT_FREE else 0 # position state: 3:xyz + 4:quaternion(how it rotates)
+        base_v = 6 if base_q == 7 else 0 # velocity state: 3:linear vel+3:angular vel 
 
         # joint qpos (after base) and qvel indices
         idx_joint_pos = np.arange(base_q, Nq)
         Nj = len(idx_joint_pos)
         idx_joint_vel = np.arange(Nq + base_v, Nq + base_v + Nj)
 
-        # -------------------- joint limits--------------------
+        #  joint limits
         qmin, qmax = [], []
         for j in range(self.mj_model.njnt):
             if self.mj_model.jnt_type[j] == mujoco.mjtJoint.mjJNT_FREE:
@@ -53,9 +53,9 @@ class Go2_Gait(NLP_MuJoCo):
         self.a_min = self.q_nom - self.q_min
         self.a_max = self.q_max - self.q_nom
 
-        # -------------------- gait targets --------------------
-        # forward COM velocity target (m/s)
-        self.v_des = np.array([0.5, 0.0, 0.0], dtype=float)
+        #  gait targets (what we want the robot to do)
+        self.v_des = np.array([0.5, 0.0, 0.0], dtype=float) #Goal: make the robot move forward at 0.5 m/s along X
+
 
         # time grid for position ramp
         t_grid = np.linspace(0.0, self.duration, num=T)[: self.T - 1]
@@ -63,32 +63,34 @@ class Go2_Gait(NLP_MuJoCo):
 
         idx_base_z = 2
         z0 = self.x_0[idx_base_z]
-        z_ref = np.full(self.T - 1, z0, dtype=float)
+        z_ref = np.full(self.T - 1, z0, dtype=float) #keeps base height near the initial value so the robot doesn’t sag or jump
 
         # base orientation 
         idx_base_quat = np.arange(3, 7)
-        quat_ref = np.tile(self.x_0[idx_base_quat], (self.T - 1, 1))  # (T-1, 4)
+        quat_ref = np.tile(self.x_0[idx_base_quat], (self.T - 1, 1))  #keeps the robot upright (orientation quaternion fixed to initial)
 
         # base linear velocity indices 
         idx_base_linvel = np.arange(Nq, Nq + 3)
 
-        # -------------------- costs --------------------
+        #  costs 
         # joint pos near nominal 
         self.add_state_cost(
-            "joint_pos",
+            "joint_pos", #Penalizes deviation of joint angles from self.q_nom (initial pose)
             self.quadratic_cost,
             idx_joint_pos,
-            weights=5.0,
+            weights=5.0, # weight on joint position error
             use_intial_as_ref=True,
-            weights_terminal=30.0,
-        )
+            weights_terminal=30.0, #more important at the end of the trajectory
+        )  #if weight is high, legs won’t move much. If too low, legs can flop wildly
 
         #  joint vel damping
         self.add_state_cost(
-            "joint_vel",
+            "joint_vel", #Penalizes joint velocities -> damps movement, prevents thrashing.
+
             self.quadratic_cost,
             idx_joint_vel,
-            weights=1e-3,
+            weights=1e-3, #Small weight 1e-3 just discourages extreme speeds.
+
         )
 
         # base height tracking
@@ -97,13 +99,14 @@ class Go2_Gait(NLP_MuJoCo):
             self.quadratic_cost,
             idx_base_z,
             ref_values=z_ref,
-            weights=30.0,
+            weights=30.0, #	Strongly punishes the base height deviating from z_ref.
+
             weights_terminal=80.0,
         )
 
-        #  base orientation near initial (simple quadratic on quat OK here)
+        #  base orientation near initial 
         self.add_state_cost(
-            "base_quat",
+            "base_quat", #Keeps the trunk upright (orientation close to initial).
             self.quadratic_cost,
             idx_base_quat,
             ref_values=quat_ref,
@@ -113,27 +116,28 @@ class Go2_Gait(NLP_MuJoCo):
 
         #  base linear velocity tracking (vx ~ 0.5 m/s)
         self.add_state_cost(
-            "base_linvel",
+            "base_linvel", #Encourages the base velocity to match v_des (most importantly vx)
             self.quadratic_cost,
             idx_base_linvel,
             ref_values=self.v_des,            # broadcasted
-            weights=[5.0, 1.0, 1.0],
+            weights=[5.0, 1.0, 1.0], #The first weight  is on vx, so going forward is prioritized; y,z less so.
             weights_terminal=[0.0, 0.0, 50.0],
         )
 
         #  base XY position ramp (consistent with v_des)
         self.add_state_cost(
-            "base_xy",
+            "base_xy", #Tracks base X,Y position to follow the ramp produced by v_des.
+
             self.quadratic_cost,
             [0, 1],
-            ref_values=xy_ref,                # (T-1, 2)
+            ref_values=xy_ref,          
             weights=[1.0, 1.0],
-            weights_terminal=[200.0, 200.0],
+            weights_terminal=[200.0, 200.0], #Terminal weights huge → the optimizer strongly prefers ending near the expected final xy.
         )
 
         #  small control effort
         self.add_control_cost(
-            "u_traj",
+            "u_traj", #Penalizes big control commands (smooths actions, avoids thrashy solutions).
             self.quadratic_cost,
             idx=list(range(self.Nu)),
             weights=0.01,
@@ -158,3 +162,5 @@ class Go2_Gait(NLP_MuJoCo):
         act = np.clip(act, -1.0, 1.0)
         q_des = np.where(act < 0, act * self.a_min, act * self.a_max) + self.q_nom
         return q_des
+    
+    #specify contacts (create contact plan)

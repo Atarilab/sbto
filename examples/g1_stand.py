@@ -1,7 +1,7 @@
 import numpy as np
 
 from sbto.tasks.unitree_g1.g1_stand import G1_Stand
-from sbto.mj.solver.cem import CEM
+from sbto.mj.solver.cem_old import CEM
 from sbto.utils.plotting import plot_state_control, plot_costs
 from sbto.utils.viewer import visualize_trajectory
 
