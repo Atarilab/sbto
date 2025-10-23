@@ -1,14 +1,14 @@
 import os
 import numpy as np
 from sbto.mj.nlp_mj import NLP_MuJoCo
-import sbto.tasks.unitree_g1.g1_box_floor_constants as G1
+import sbto.tasks.unitree_g1.constants.g1_obj_floor_constants as G1
 from sbto.utils.gait import GaitConfig, generate_contact_plan
 from sbto.mj.nlp_mj import ConfigNLP_Mj, dataclass
 
 @dataclass
-class ConfigG1BoxPickupFloor(ConfigNLP_Mj):
+class ConfigG1ObjPickupFloor(ConfigNLP_Mj):
     # Scene
-    scene_file: str = "scene_mjx_23dof_no_hands_box_floor.xml"
+    scene_file: str = "scene_mjx_23dof_no_hands_obj_floor.xml"
 
     # --- Joint reference ---
     keyframe_name: str = "knees_bent_wrist_yaw_90deg"
@@ -63,9 +63,9 @@ class ConfigG1BoxPickupFloor(ConfigNLP_Mj):
     u_weight_upperbody_scale: float = 0.5
     u_torques: float = 1.0e-5
 
-class G1_BoxPickupFloor(NLP_MuJoCo):
+class G1_ObjPickupFloor(NLP_MuJoCo):
 
-    def __init__(self, cfg: ConfigG1BoxPickupFloor):
+    def __init__(self, cfg: ConfigG1ObjPickupFloor):
         xml_path = os.path.join(G1.XML_DIR_PATH, cfg.scene_file)
         super().__init__(xml_path, cfg.T, cfg.Nknots, cfg.interp_kind, cfg.Nthread)
 
@@ -88,8 +88,8 @@ class G1_BoxPickupFloor(NLP_MuJoCo):
         obj_position_ref[node_impact:, :] += dir[None, ] * t_[:, None]
 
         torso_pos_ref = np.zeros((self.T, 3))
-        height_torso_box_offset = 0.1
-        torso_pos_ref[:, -1] = obj_position_ref[:, -1] + height_torso_box_offset
+        height_torso_obj_offset = 0.1
+        torso_pos_ref[:, -1] = obj_position_ref[:, -1] + height_torso_obj_offset
 
         base_pos_start = self.x_0[:3]
         base_pos_end = self.x_0[:3] + np.array([0., 0., -0.4])
@@ -158,7 +158,7 @@ class G1_BoxPickupFloor(NLP_MuJoCo):
         )
         # --- Obj cost ---
         # self.add_state_cost(
-        #     "box_position",
+        #     "obj_position",
         #     self.quadratic_cost,
         #     G1.IDX_BOX_POS,
         #     weights=cfg.obj_pos_weight,
@@ -167,7 +167,7 @@ class G1_BoxPickupFloor(NLP_MuJoCo):
         #     use_intial_as_ref=True
         # )
         # self.add_state_cost(
-        #     "box_quat",
+        #     "obj_quat",
         #     self.quat_dist,
         #     G1.IDX_BOX_QUAT,
         #     weights=cfg.obj_quat_weight,
@@ -175,14 +175,14 @@ class G1_BoxPickupFloor(NLP_MuJoCo):
         #     use_intial_as_ref=True
         # )
         # self.add_state_cost(
-        #     "box_linvel",
+        #     "obj_linvel",
         #     self.quadratic_cost,
         #     G1.IDX_BOX_LINVEL,
         #     weights=cfg.obj_linvel_weight,
         #     weights_terminal=cfg.obj_linvel_weight*10,
         # )
         # self.add_state_cost(
-        #     "box_angvel",
+        #     "obj_angvel",
         #     self.quadratic_cost,
         #     G1.IDX_BOX_ANGVEL,
         #     weights=cfg.obj_angvel_weight,

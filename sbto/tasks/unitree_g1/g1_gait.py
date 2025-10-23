@@ -1,7 +1,7 @@
 import os
 import numpy as np
 from sbto.mj.nlp_mj import NLP_MuJoCo
-import sbto.tasks.unitree_g1.g1_constants as G1
+import sbto.tasks.unitree_g1.constants.g1_constants as G1
 from sbto.utils.gait import GaitConfig, generate_contact_plan
 from sbto.mj.nlp_mj import ConfigNLP_Mj, dataclass
 

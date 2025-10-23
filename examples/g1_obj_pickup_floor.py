@@ -1,11 +1,11 @@
 import os
 
-from sbto.tasks.unitree_g1.g1_box_pickup_floor import G1_BoxPickupFloor, ConfigG1BoxPickupFloor
+from sbto.tasks.unitree_g1.g1_obj_pickup_floor import G1_ObjPickupFloor, ConfigG1ObjPickupFloor
 from sbto.mj.solver.cem import CEM, CEMConfig
 from sbto.utils.exp_manager import run_experiments, sweep_param
 
 def main():
-    cfg_nlp = ConfigG1BoxPickupFloor(
+    cfg_nlp = ConfigG1ObjPickupFloor(
         T=200,
         interp_kind="quadratic",
         Nthread=112,
@@ -28,7 +28,7 @@ def main():
         num=10
     )
     run_experiments(
-        G1_BoxPickupFloor,
+        G1_ObjPickupFloor,
         cfg_nlp,
         CEM,
         cfg_solver,

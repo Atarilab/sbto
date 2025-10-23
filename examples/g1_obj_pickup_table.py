@@ -1,11 +1,11 @@
 import os
 
-from sbto.tasks.unitree_g1.g1_box_pickup import G1_BoxPickup, ConfigG1BoxPickup
+from sbto.tasks.unitree_g1.g1_obj_pickup_table import G1_ObjPickup, ConfigG1ObjPickup
 from sbto.mj.solver.cem import CEM, CEMConfig
 from sbto.utils.exp_manager import run_experiments, sweep_param
 
 def main():
-    cfg_nlp = ConfigG1BoxPickup(
+    cfg_nlp = ConfigG1ObjPickup(
         T=200,
         interp_kind="linear",
         Nthread=112,
@@ -29,7 +29,7 @@ def main():
         5   
     )
     run_experiments(
-        G1_BoxPickup,
+        G1_ObjPickup,
         cfg_nlp,
         CEM,
         cfg_solver,
