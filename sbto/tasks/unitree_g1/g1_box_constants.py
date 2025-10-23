@@ -2,7 +2,6 @@ XML_DIR_PATH = "sbto/models/unitree_g1/"
 
 N_FEET = 2
 N_HANDS = 2
-NDOFS_G1 = 25 # 23 + 2 for wrists
 
 cnt_sensor_per_foot = 3
 # found force
@@ -126,25 +125,37 @@ RESTRICTED_JOINT_RANGE = (
     (-0.2, 1.57),
     (-1, 1),
     (-1., 1.57),
-    (-1.97222, 1.97222),
+    (-1., 1.),
     (-1.57, -1.57), # 0 range for the yaw wrists
     # Right shoulder.
     (-1.57, 1.57),
     (-1.57, 0.2),
     (-1, 1),
     (-1., 1.57),
-    (-1.97222, 1.97222),
+    (-1., 1.),
     (1.57, 1.57), # 0 range for the yaw wrists
 )
 
-IDX_JOINT_POS = list(range(7, 7 + NDOFS_G1))
-_idx_joint_vel = 7 + NDOFS_G1 + 7
-IDX_JOINT_VEL = list(range(_idx_joint_vel + 6, _idx_joint_vel + 6 + NDOFS_G1))
-IDX_HIP_KNEE = [0, 3, 6, 9]
-IDX_SHOULDER_PITCH = [13, 19]
-IDX_WAIST = 12
+# --- System DOFs ---
+NDOF_G1 = 25  # robot: 23 + 2 wrists
+NQ_G1 = 7 + NDOF_G1        # 7 for base pose (3 pos + 4 quat)
+NV_G1 = 6 + NDOF_G1        # 6 for base velocity (3 lin + 3 ang)
+iNV_G1 = NQ_G1 + 7         # NQ + 7 for box
 
-IDX_BOX_POS = list(range(7+NDOFS_G1, 7+NDOFS_G1+3))
-IDX_BOX_QUAT = list(range(7+NDOFS_G1+3, 7+NDOFS_G1+3+4))
-IDX_BOX_LINVEL = list(range(_idx_joint_vel + 6 + NDOFS_G1, _idx_joint_vel + 6 + NDOFS_G1 + 3))
-IDX_BOX_ANGVEL = list(range(_idx_joint_vel + 6 + NDOFS_G1 + 3, _idx_joint_vel + 6 + NDOFS_G1 + 3 + 3))
+# --- Robot joint indices ---
+IDX_JOINT_POS = list(range(7, 7 + NDOF_G1))              # qpos indices for joints
+IDX_JOINT_VEL = list(range(iNV_G1, iNV_G1 + NDOF_G1))    # qvel indices for joints
+
+# Example subgroups (these depend on your robot’s joint ordering)
+IDX_HIP_KNEE = [0, 3, 6, 9]       # example leg joint indices
+IDX_SHOULDER_PITCH = [13, 19]     # example shoulder pitch joints
+IDX_WAIST = 12                    # example waist joint index
+
+# --- Box state indices ---
+# Box qpos starts right after the robot qpos (7 + NDOF_G1)
+IDX_BOX_POS = list(range(NQ_G1, NQ_G1 + 3))
+IDX_BOX_QUAT = list(range(NQ_G1 + 3, NQ_G1 + 7))
+
+# Box qvel starts right after robot qvel (6 + NDOF_G1)
+IDX_BOX_LINVEL = list(range(iNV_G1 + NV_G1, iNV_G1 + NV_G1 + 3))
+IDX_BOX_ANGVEL = list(range(iNV_G1 + NV_G1 + 3, iNV_G1 + NV_G1 + 6))

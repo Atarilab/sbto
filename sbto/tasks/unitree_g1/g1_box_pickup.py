@@ -15,8 +15,9 @@ class ConfigG1BoxPickup(ConfigNLP_Mj):
 
     # --- State costs ---
     joint_pos_weight: float = 0.1
-    joint_pos_weight_terminal: float = 1.
+    joint_pos_weight_terminal: float = 0.
     joint_vel_weight: float = 0.05
+    joint_vel_weight_terminal: float = 0.5
     
     # --- Obj state goal ---
     obj_init_pos: tuple = (0.35, 0., 0.715)
@@ -26,34 +27,36 @@ class ConfigG1BoxPickup(ConfigNLP_Mj):
     delay_lift: float = 0.07
 
     # --- Obj state costs ---
-    obj_pos_weight: float = 5.0
-    obj_pos_weight_terminal: float = (50., 50., 500.0)
-    obj_quat_weight: float = 3.0
-    obj_quat_weight_terminal: float = 50.0 
-    obj_linvel_weight: float = 4.
-    obj_angvel_weight: float = 2.
+    obj_pos_weight: float = 1.
+    obj_pos_weight_terminal: float = (100., 100., 100.0)
+    obj_quat_weight: float = 5.0
+    obj_quat_weight_terminal: float = 20.0 
+    obj_linvel_weight: float = 0.1
+    obj_linvel_weight_term: float = 20.
+    obj_angvel_weight: float = 0.1
+    obj_angvel_weight_term: float = 10.
     
     # --- Torso position cost ---
     torso_pos_weight: float = (1., 1., 5.)
-    torso_pos_weight_terminal: float = (50.0, 50.0, 50.0)
+    torso_pos_weight_terminal: float = (1.0, 1.0, 50.0)
 
     # --- Torso linear velocity cost ---
-    torso_linvel_weight: tuple = (3.0, 3.0, 0.1)
-    torso_linvel_weight_terminal: tuple = (20.0, 20.0, 50.0)
+    torso_linvel_weight: tuple = (1.0, 1.0, 1.0)
+    torso_linvel_weight_terminal: tuple = (25.0, 25.0, 50.0)
 
     # --- Torso angular velocity cost ---
     torso_angvel_weight: float = 1.
     torso_angvel_weight_terminal: float = 1.
 
     # --- Torso orientation cost ---
-    torso_quat_weight: float = 0.1
+    torso_quat_weight: float = 0.05
     torso_quat_weight_terminal: float = 5.0
 
     # --- Contact plan and cost ---
-    contact_obj_weight: float = 10.
+    contact_obj_weight: float = 15.
     contact_hands_weight: float = 10.
     contact_force_obj_weight: float = 1.0e-3
-    contact_torque_obj_weight: float = 1.0e-3
+    contact_torque_obj_weight: float = 0.
     contact_feet_weight: float = 1.
     contact_force_feet_weight: float = 1.0e-6
 
@@ -109,7 +112,7 @@ class G1_BoxPickup(NLP_MuJoCo):
             self.quadratic_cost,
             G1.IDX_JOINT_VEL,
             weights=cfg.joint_vel_weight,
-            weights_terminal=cfg.joint_vel_weight*10.,
+            weights_terminal=cfg.joint_vel_weight_terminal,
         )
         self.add_sensor_cost(
             G1.Sensors.TORSO_POS,
@@ -157,17 +160,17 @@ class G1_BoxPickup(NLP_MuJoCo):
         )
         self.add_state_cost(
             "box_linvel",
-            self.quat_dist,
+            self.quadratic_cost,
             G1.IDX_BOX_LINVEL,
             weights=cfg.obj_linvel_weight,
-            weights_terminal=cfg.obj_linvel_weight*10,
+            weights_terminal=cfg.obj_linvel_weight_term,
         )
         self.add_state_cost(
             "box_angvel",
-            self.quat_dist,
+            self.quadratic_cost,
             G1.IDX_BOX_ANGVEL,
             weights=cfg.obj_angvel_weight,
-            weights_terminal=cfg.obj_angvel_weight*10,
+            weights_terminal=cfg.obj_angvel_weight_term,
         )
 
         # --- Contact plan hands ---
