@@ -1,6 +1,6 @@
 <mujoco model="g1 mjx flat terrain scene">
 
-  <include file="g1_mjx_23dof_custom_collisions.xml"/>
+  <include file="g1_mjx_23dof_hands.xml"/>
 
   <statistic center="0 0 0.7" extent="1.2" meansize="0.02"/>
 
@@ -24,42 +24,8 @@
     <geom name="floor" size="0 0 0.01" type="plane" material="groundplane" contype="1" conaffinity="130"/>
   </worldbody>
 
-  <include file="sensors.xml"/>
+  <include file="utils/keyframes.xml"/>
+  <include file="utils/sensors.xml"/>
+  <include file="utils/collision_loco.xml"/>
 
-  <keyframe>
-    <key name="home"
-      qpos="
-      0 0 0.783675
-      1 0 0 0
-      -0.1 0 0 0.3 -0.2 0
-      -0.1 0 0 0.3 -0.2 0
-      0
-      0.2 0.2 0 0.3 0
-      0.2 -0.2 0 0.3 0
-      "
-      ctrl="
-      -0.1 0 0 0.3 -0.2 0
-      -0.1 0 0 0.3 -0.2 0
-      0
-      0.2 0.2 0 0.3 0
-      0.2 -0.2 0 0.3 0
-      "/>
-    <key name="knees_bent"
-      qpos="
-      0 0 0.755
-      1 0 0 0
-      -0.312 0 0 0.669 -0.363 0
-      -0.312 0 0 0.669 -0.363 0
-      0
-      0.2 0.22 0 0.5 0
-      0.2 -0.22 0 0.5 0
-      "
-      ctrl="
-      -0.312 0 0 0.669 -0.363 0
-      -0.312 0 0 0.669 -0.363 0
-      0
-      0.2 0.22 0 0.5 0
-      0.2 -0.22 0 0.5 0
-    "/>
-  </keyframe>
 </mujoco>

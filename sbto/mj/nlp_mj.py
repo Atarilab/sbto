@@ -2,9 +2,20 @@ import numpy as np
 import mujoco
 from mujoco import rollout
 from typing import Tuple, Union, Optional, List
-from sbto.mj.nlp_base import NLPBase, Array, CostFn, IntArray
 import copy
 from multiprocessing import cpu_count
+from sbto.mj.nlp_base import NLPBase, Array, CostFn, IntArray
+from sbto.utils.config import ConfigBase, dataclass
+
+@dataclass
+class ConfigNLP_Mj(ConfigBase):
+    T: int
+    Nknots: int
+    interp_kind: str = "linear"
+    Nthread: int = -1
+
+    def __post_init__(self):
+        self._filename = "config_nlp.yaml"
 
 class NLP_MuJoCo(NLPBase):
     def __init__(
@@ -30,7 +41,7 @@ class NLP_MuJoCo(NLPBase):
         if Nthread == -1:
             self.Nthread = cpu_count()
         else:
-            self.Nthread = Nthread if cpu_count() > Nthread > 0 else 1
+            self.Nthread = Nthread if cpu_count() > Nthread > 0 else cpu_count()
         print(f"Using {self.Nthread} threads for MuJoCo simulation.")
 
         self.dt = self.mj_model.opt.timestep
@@ -53,8 +64,11 @@ class NLP_MuJoCo(NLPBase):
         self.Nobs = 0
 
         # rollout variables
-        self._chunk_size = 16
+        self._chunk_size = 2
         self._persistent_pool = True
+
+        # contact sensors obs_id
+        self.contact_obs_id : Array = None
 
     def set_initial_state_from_keyframe(self, keyframe_name: str) -> None:
         keyframe = self.mj_model.keyframe(keyframe_name)
@@ -86,7 +100,10 @@ class NLP_MuJoCo(NLPBase):
         mujoco.mj_getState(model, data, state, full_physics)
         return state
     
-    def get_sensors_adr(self, sensor_names: Union[str, list[str]]) -> Array:
+    def get_sensors_adr(self,
+                        sensor_names: Union[str, list[str]],
+                        sub_idx_sensor: Union[IntArray, int] = -1,
+                        ) -> Array:
         """Gets sensor adr given one or multiple sensor names."""
         if isinstance(sensor_names, str):
             sensor_names = [sensor_names]
@@ -96,7 +113,20 @@ class NLP_MuJoCo(NLPBase):
             sensor_adr = self.mj_model.sensor_adr[sensor_id]
             sensor_dim = self.mj_model.sensor_dim[sensor_id]
             adr.extend(range(sensor_adr, sensor_adr + sensor_dim))
-        return np.asarray(adr)
+        sensor_idx = np.asarray(adr)
+
+        # sub_idx_sensor is the index to consider among sensor_idx
+        if sub_idx_sensor != -1:
+            if isinstance(sub_idx_sensor, int):
+                sub_idx_sensor = [sub_idx_sensor]
+            
+            sub_idx_sensor = np.asarray(sub_idx_sensor, dtype=np.int64)
+            
+            idx_o = np.take(sensor_idx, sub_idx_sensor)
+        else:
+            idx_o = sensor_idx
+
+        return idx_o
     
     def _reset_data(self) -> None:
         for data in self.mj_datas:
@@ -142,19 +172,8 @@ class NLP_MuJoCo(NLPBase):
                         use_intial_as_ref: bool = False,
                         ) -> None:
         # Get sensordata idx
-        sensor_idx = self.get_sensors_adr(sensor_name)
+        idx_o = self.get_sensors_adr(sensor_name, sub_idx_sensor)
 
-        # sub_idx_sensor is the index to consider among sensor_idx
-        if sub_idx_sensor != -1:
-            if isinstance(sub_idx_sensor, int):
-                sub_idx_sensor = [sub_idx_sensor]
-            
-            sub_idx_sensor = np.asarray(sub_idx_sensor, dtype=np.int64)
-            
-            idx_o = np.take(sensor_idx, sub_idx_sensor)
-        else:
-            idx_o = sensor_idx
-        
         # Set cost name
         if not isinstance(sensor_name, str):
             name = "+".join(sensor_name)
@@ -179,30 +198,21 @@ class NLP_MuJoCo(NLPBase):
             ref_values_terminal,
             weights_terminal,
             )
-        
-    def get_q_des_from_u_traj(self, act: Array) -> Array:
-        action_scale = 0.5
-        q_des = np.clip(
-            self.a + action_scale * act * self.b,
-            self.q_min,
-            self.q_max
-            )
-        return q_des
 
-    def _rollout_dynamics(self, u_traj: Array) -> Tuple[Array, Array, Array]:
+    def _rollout_dynamics(self, pd_target_traj: Array) -> Tuple[Array, Array, Array]:
         """
         Rollout the dynamics with the given control trajecotries [-1, T, Nu].
         Returns state [-1, T, Nu], control [-1, T, Nu] and observations [-1, T, Nobs] trajectories.
         """
-        if self.N_allocated != u_traj.shape[0]:
-            self._init_batches(u_traj.shape[0])
+        if self.N_allocated != pd_target_traj.shape[0]:
+            self._init_batches(pd_target_traj.shape[0])
         else:
             self._reset_data()
 
         rollout.rollout(self.mj_models,
                         self.mj_datas,
                         self.initial_states,
-                        control=self.get_q_des_from_u_traj(u_traj),
+                        control=pd_target_traj,
                         nstep=self.T,
                         state=self.state_rollout,
                         sensordata=self.sensordata_rollout, 
@@ -210,4 +220,30 @@ class NLP_MuJoCo(NLPBase):
                         persistent_pool=self._persistent_pool,
                         chunk_size=self._chunk_size
                         )
-        return self.state_rollout, u_traj, self.sensordata_rollout
+        return self.state_rollout, pd_target_traj, self.sensordata_rollout
+    
+    def get_sensor_data(
+        self,
+        obs: Array,
+        sensor_names: str | List[str],
+        sub_idx_sensor: int | List[int] = -1,
+        ) -> Array:
+
+        idx_o = self.get_sensors_adr(sensor_names, sub_idx_sensor)
+        return obs[:, idx_o]
+    
+    def set_contact_sensor_id(
+        self,
+        cnt_sensor_names: str | List[str],
+        cnt_sub_idx_sensor: int | List[int] = -1
+        ) -> None:
+        self.contact_obs_id = self.get_sensors_adr(cnt_sensor_names, cnt_sub_idx_sensor)
+    
+    def get_contact_status(
+        self,
+        obs_traj,
+        ) -> Array:
+        if self.contact_obs_id is None:
+            print("Warning: self.contact_obs_id is not set.")
+            return []
+        return obs_traj[:, self.contact_obs_id]

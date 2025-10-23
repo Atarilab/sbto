@@ -1,3 +1,8 @@
+test/
+plots/
+runs/
+MUJOCO_LOG.TXT
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]

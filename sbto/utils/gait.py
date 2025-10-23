@@ -61,9 +61,9 @@ quad_bound = GaitConfig(
     )
 humanoid_trot = GaitConfig(
     2,
-    stance_ratio=[0.55, 0.55],
+    stance_ratio=[0.56, 0.56],
     phase_offset=[0.5, 0.0],
-    nominal_period=0.66
+    nominal_period=0.9,
     )
 humanoid_jump = GaitConfig(
     2,

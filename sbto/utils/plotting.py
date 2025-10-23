@@ -1,3 +1,4 @@
+from typing import List, Optional
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
@@ -144,6 +145,9 @@ def plot_costs(
         title (str): Title for the plot.
     """
     all_costs = np.asarray(all_costs)
+    # max cost is max cost at iteration 0 (remove outliers)
+    max_lim_cost = 3. * np.mean(all_costs[0, :])
+    all_costs = np.clip(all_costs, None, max_lim_cost)
     Nit = all_costs.shape[0]
 
     plt.figure(figsize=(10, 5))
@@ -163,6 +167,7 @@ def plot_costs(
     plt.xlabel("Iteration")
     plt.ylabel("Cost")
     plt.yscale("log")
+    plt.ylim(top=max_lim_cost)
     plt.title(title)
     plt.grid(True, linestyle="--", alpha=0.6)
     plt.legend()
@@ -181,5 +186,146 @@ def plot_costs(
         print("Figure saved to", filepath)
 
     # When running on the server
+    else:
+        plt.show()
+
+
+def plot_mean_cov(
+    time,
+    mean_knots, 
+    knots, 
+    cov,
+    u_traj,
+    Nu: int,
+    save_dir: str = ""
+    ):
+    """
+    Plot the mean, variance (diagonal of covariance), and best sample per control dimension.
+
+    Args:
+        time: (T) time array
+        mean_knots: (Nknots, Nu) array of mean controls over time
+        knots: (Nknots, Nu) array of best (elite) controls over time
+        cov: (Nknots, Nu, Nu) full covariance matrices (only diagonals are used for plotting)
+        u_traj: (T, Nu) full pd target trajectory
+        Nu: number of control dimensions
+        save_dir: Save direectory path
+    """
+    # ---------------- FIGURE: Control distribution ----------------
+    fig, axs = plt.subplots(Nu, 1, figsize=(10, 2.5 * Nu), sharex=True)
+    plt.title("Control Distribution", fontsize=14, fontweight="bold")
+
+    # Handle single-control case
+    if Nu == 1:
+        axs = [axs]
+
+    # Ensure correct shapes
+    mean_knots = mean_knots.reshape(-1, Nu)
+    knots = knots.reshape(-1, Nu)
+    diag_cov = np.diag(cov).reshape(-1, Nu)
+
+    T = mean_knots.shape[0]
+
+    start, end = time[0], time[-1]
+    Nknots = knots.shape[0]
+    t_knots = np.linspace(start, end, Nknots, endpoint=True)
+
+    # Plot each control dimension
+    for i in range(Nu):
+        ax = axs[i]
+        mean = mean_knots[:, i]
+        std = np.sqrt(diag_cov[:, i])
+
+        ax.plot(time, u_traj[:, i], label=f"u[{i}]")
+
+        ax.scatter(t_knots, mean, label=f"mean u[{i}]", color="C0", marker='o',)
+        ax.fill_between(t_knots, mean - std, mean + std, color="C0", alpha=0.3, label="±1σ")
+        ax.scatter(t_knots, knots[:, i], label="best", color="C1", marker='x',)
+
+        ax.set_ylabel(f"$u_{i}$")
+        ax.grid(True, linestyle="--", alpha=0.5)
+        ax.legend()
+
+    axs[-1].set_xlabel("Time step")
+
+    plt.tight_layout()
+
+    if save_dir:
+        if not os.path.exists(save_dir):
+            Warning(f"Directory {save_dir} does not exists.")
+            os.makedirs(save_dir)
+        
+        filename = "control_knots_final_distrib"
+        format = "pdf"
+        filepath = os.path.join(save_dir, filename) + f".{format}"
+        plt.savefig(fname=filepath, format=format)
+        print("Figure saved to", filepath)
+
+    # When running on the server
+    else:
+        plt.show()
+
+def plot_contact_plan(
+    contact_array: Array,
+    ref_array: Optional[Array] = None,
+    ee_labels: List[str] = [],
+    dt: float = 0.01,
+    size: int = 15,
+    save_dir: str = ""
+    ):
+    """
+    Visualize quadruped contact plan with optional reference.
+
+    Args:
+        contact_array (np.ndarray): shape [T, N_eeff], 0/1 realized contact status.
+        ref_array (np.ndarray): optional reference contact plan, same shape.
+        ee_labels (list of str): optional names for end-effectors.
+        dt (float): 
+    """
+    T, N = contact_array.shape
+    if len(ee_labels) == 0:
+        ee_labels = [f"EE {i}" for i in range(N)]
+
+    fig, ax = plt.subplots(figsize=(8, max(2, N * 0.6)))
+
+    def draw_contacts(array, color, alpha=1.0, zorder=1, height=0.6):
+        for i in range(N):
+            y = N - 1 - i
+            in_contact = array[:, i]
+            starts = np.where(np.diff(np.pad(in_contact, (1, 0))) == 1)[0] * dt
+            ends = np.where(np.diff(np.pad(in_contact, (0, 1))) == -1)[0] * dt
+            for s, e in zip(starts, ends):
+                ax.barh(y, e - s, left=s, height=height,
+                        color=color, alpha=alpha, zorder=zorder)
+
+    # Draw reference first (background)
+    if ref_array is not None:
+        draw_contacts(ref_array, color="lightgray", alpha=1.0, zorder=1, height=0.8)
+
+    # Draw realized on top (foreground)
+    draw_contacts(contact_array, color="dimgray", alpha=1.0, zorder=2, height=0.4)
+
+    ax.set_xlim(0, T * dt)
+    ax.set_ylim(-0.5, N - 0.5)
+    ax.tick_params(axis='y', labelsize=size-2)
+    ax.tick_params(axis='x', labelsize=size-2)
+    ax.set_yticks(range(N))
+    ax.set_yticklabels(labels=ee_labels[::-1])
+    ax.set_xlabel("Time (s)",  size=size)
+    ax.set_title("Contact Sequence (reference vs realized)", size=size+2)
+    ax.grid(True, axis="x", linestyle="--", alpha=0.5)
+    plt.tight_layout()
+
+    if save_dir:
+        if not os.path.exists(save_dir):
+            Warning(f"Directory {save_dir} does not exists.")
+            os.makedirs(save_dir)
+        
+        filename = "contact_achieved_vs_planed"
+        format = "pdf"
+        filepath = os.path.join(save_dir, filename) + f".{format}"
+        plt.savefig(fname=filepath, format=format)
+        print("Figure saved to", filepath)
+
     else:
         plt.show()
