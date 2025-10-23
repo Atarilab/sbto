@@ -78,11 +78,11 @@
     <!-- hand - hand -->
     <!-- <pair name="left_hand_right_hand" geom1="left_hand_collision" geom2="right_hand_collision" condim="1"/> -->
 
-    <!-- hands - box -->
-    <pair name="left_hand_box" geom1="left_hand_collision" geom2="box" solref="0.015 1." friction="1 1" condim="3"/>
-    <pair name="right_hand_box" geom1="right_hand_collision" geom2="box" solref="0.015 1." friction="1 1" condim="3"/>
-    <!-- torso - box -->
-    <pair name="torso_box" geom1="torso_collision" geom2="box" condim="1"/>
+    <!-- hands - obj -->
+    <pair name="left_hand_obj" geom1="left_hand_collision" geom2="obj" solref="0.015 1." friction="1 1" condim="3"/>
+    <pair name="right_hand_obj" geom1="right_hand_collision" geom2="obj" solref="0.015 1." friction="1 1" condim="3"/>
+    <!-- torso - obj -->
+    <pair name="torso_obj" geom1="torso_collision" geom2="obj" condim="1"/>
     
     <!-- hands - table -->
     <!-- <pair name="left_hand_table" geom1="left_hand_collision" geom2="table" condim="1"/>
@@ -99,12 +99,12 @@
     <pair name="right_hip_table" geom1="right_hip_collision" geom2="table" condim="1"/> -->
     
     
-    <!-- foot - box -->
-    <pair name="right_foot2_box" geom1="right_foot2_collision" geom2="box" condim="1"/>
-    <pair name="left_foot2_box" geom1="left_foot2_collision" geom2="box" condim="1"/>
-    <!-- shin - box -->
-    <pair name="right_shin_box" geom1="left_shin_collision" geom2="box" condim="1"/>
-    <pair name="left_shin_box" geom1="right_shin_collision" geom2="box" condim="1"/>
+    <!-- foot - obj -->
+    <pair name="right_foot2_obj" geom1="right_foot2_collision" geom2="obj" condim="1"/>
+    <pair name="left_foot2_obj" geom1="left_foot2_collision" geom2="obj" condim="1"/>
+    <!-- shin - obj -->
+    <pair name="right_shin_obj" geom1="left_shin_collision" geom2="obj" condim="1"/>
+    <pair name="left_shin_obj" geom1="right_shin_collision" geom2="obj" condim="1"/>
   </contact>
 
 </mujoco>

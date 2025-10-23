@@ -1,14 +1,14 @@
 import os
 import numpy as np
 from sbto.mj.nlp_mj import NLP_MuJoCo
-import sbto.tasks.unitree_g1.g1_box_constants as G1
+import sbto.tasks.unitree_g1.constants.g1_obj_table_constants as G1
 from sbto.utils.gait import GaitConfig, generate_contact_plan
 from sbto.mj.nlp_mj import ConfigNLP_Mj, dataclass
 
 @dataclass
-class ConfigG1BoxPickup(ConfigNLP_Mj):
+class ConfigG1ObjPickup(ConfigNLP_Mj):
     # Scene
-    scene_file: str = "scene_mjx_23dof_no_hands_box_table.xml"
+    scene_file: str = "scene_mjx_23dof_no_hands_obj_table.xml"
 
     # --- Joint reference ---
     keyframe_name: str = "knees_bent_wrist_yaw_90deg"
@@ -29,7 +29,7 @@ class ConfigG1BoxPickup(ConfigNLP_Mj):
     # --- Obj state costs ---
     obj_pos_weight: float = 1.
     obj_pos_weight_terminal: float = (100., 100., 100.0)
-    obj_quat_weight: float = 5.0
+    obj_quat_weight: float = 10.0
     obj_quat_weight_terminal: float = 20.0 
     obj_linvel_weight: float = 0.1
     obj_linvel_weight_term: float = 20.
@@ -66,9 +66,9 @@ class ConfigG1BoxPickup(ConfigNLP_Mj):
     u_weight_upperbody_scale: float = 0.1
     u_torques: float = 1.0e-5
 
-class G1_BoxPickup(NLP_MuJoCo):
+class G1_ObjPickup(NLP_MuJoCo):
 
-    def __init__(self, cfg: ConfigG1BoxPickup):
+    def __init__(self, cfg: ConfigG1ObjPickup):
         xml_path = os.path.join(G1.XML_DIR_PATH, cfg.scene_file)
         super().__init__(xml_path, cfg.T, cfg.Nknots, cfg.interp_kind, cfg.Nthread)
 
@@ -142,7 +142,7 @@ class G1_BoxPickup(NLP_MuJoCo):
         )
         # --- Obj cost ---
         self.add_state_cost(
-            "box_position",
+            "obj_position",
             self.quadratic_cost,
             G1.IDX_BOX_POS,
             weights=cfg.obj_pos_weight,
@@ -151,7 +151,7 @@ class G1_BoxPickup(NLP_MuJoCo):
             use_intial_as_ref=True
         )
         self.add_state_cost(
-            "box_quat",
+            "obj_quat",
             self.quat_dist,
             G1.IDX_BOX_QUAT,
             weights=cfg.obj_quat_weight,
@@ -159,14 +159,14 @@ class G1_BoxPickup(NLP_MuJoCo):
             use_intial_as_ref=True
         )
         self.add_state_cost(
-            "box_linvel",
+            "obj_linvel",
             self.quadratic_cost,
             G1.IDX_BOX_LINVEL,
             weights=cfg.obj_linvel_weight,
             weights_terminal=cfg.obj_linvel_weight_term,
         )
         self.add_state_cost(
-            "box_angvel",
+            "obj_angvel",
             self.quadratic_cost,
             G1.IDX_BOX_ANGVEL,
             weights=cfg.obj_angvel_weight,
