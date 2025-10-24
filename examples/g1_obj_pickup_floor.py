@@ -9,17 +9,17 @@ def main():
         T=200,
         interp_kind="quadratic",
         Nthread=112,
-        Nknots=12
+        Nknots=14
     )
     cfg_solver = CEMConfig(
         N_samples=1024,
-        elite_frac=0.03,
+        elite_frac=0.05,
         alpha_mean=0.9,
-        alpha_cov=0.1,
+        alpha_cov=0.2,
         seed=42,
         quasi_random=True,
         N_it=100,
-        sigma0=0.25
+        sigma0=0.3
         )
     sweep_seed = sweep_param(
         cfg_solver,

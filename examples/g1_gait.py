@@ -13,13 +13,15 @@ def main():
     )
     cfg_solver = CEMConfig(
         N_samples=1024,
-        elite_frac=0.04,
+        elite_frac=0.05,
         alpha_mean=0.9,
         alpha_cov=0.1,
         seed=42,
         quasi_random=True,
-        N_it=100,
-        sigma0=0.2
+        N_it=150,
+        sigma0=0.2,
+        a=1e-5,
+        b=1e-5,
     )
     run_experiments(
         G1_Gait,

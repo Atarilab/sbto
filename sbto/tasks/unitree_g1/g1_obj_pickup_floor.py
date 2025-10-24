@@ -4,6 +4,7 @@ from sbto.mj.nlp_mj import NLP_MuJoCo
 import sbto.tasks.unitree_g1.constants.g1_obj_floor_constants as G1
 from sbto.utils.gait import GaitConfig, generate_contact_plan
 from sbto.mj.nlp_mj import ConfigNLP_Mj, dataclass
+from sbto.utils.cost import quadratic_cost_nb, quaternion_dist_nb, hamming_dist_nb
 
 @dataclass
 class ConfigG1ObjPickupFloor(ConfigNLP_Mj):
@@ -19,11 +20,11 @@ class ConfigG1ObjPickupFloor(ConfigNLP_Mj):
     joint_vel_weight: float = 0.001
     
     # --- Obj state goal ---
-    obj_init_pos: tuple = (0.45, 0., 0.115)
+    obj_init_pos: tuple = (0.4, 0., 0.115)
     obj_delta_position: tuple = (0., 0., 0.0)
     obj_delta_orientation: tuple = (0., 0., 0.)
-    reaching_cnt_time: float = 1.8
-    delay_lift: float = 0.2
+    reaching_cnt_time: float = 1.4
+    delay_lift: float = 0.6
 
     # --- Obj state costs ---
     obj_pos_weight: float = 5.0
@@ -34,28 +35,28 @@ class ConfigG1ObjPickupFloor(ConfigNLP_Mj):
     obj_angvel_weight: float = 1.
     
     # --- Torso position cost ---
-    torso_pos_weight: float = (1., 1., 20.)
-    torso_pos_weight_terminal: float = (0.0, 0.0, 200.0)
+    torso_pos_weight: float = (2., 2., 20.)
+    torso_pos_weight_terminal: float = (0.1, 0.1, 200.0)
 
     # --- Torso linear velocity cost ---
-    torso_linvel_weight: tuple = (1.0, 1.0, 0.1)
-    torso_linvel_weight_terminal: tuple = (20.0, 20.0, 20.0)
+    torso_linvel_weight: tuple = (1.0, 1.0, 1.0)
+    torso_linvel_weight_terminal: tuple = (5.0, 5.0, 10.0)
 
     # --- Torso angular velocity cost ---
-    torso_angvel_weight: float = 5.
+    torso_angvel_weight: float = 1.
     torso_angvel_weight_terminal: float = 10.
 
     # --- Torso orientation cost ---
-    torso_quat_weight: float = 2.
-    torso_quat_weight_terminal: float = 100.0
+    torso_quat_weight: float = 0.
+    torso_quat_weight_terminal: float = 10.0
 
     # --- Contact plan and cost ---
     contact_obj_weight: float = 10.
     contact_hands_weight: float = 10.
     contact_force_obj_weight: float = 2.0e-3
     contact_torque_obj_weight: float = 1.0e-3
-    contact_feet_weight: float = 0.0
-    contact_force_feet_weight: float = 1.0e-7
+    contact_feet_weight: float = 10.0
+    contact_force_feet_weight: float = 1.0e-4
 
     # --- Control cost ---
     u_weight_default: float = 0.01
@@ -92,13 +93,13 @@ class G1_ObjPickupFloor(NLP_MuJoCo):
         torso_pos_ref[:, -1] = obj_position_ref[:, -1] + height_torso_obj_offset
 
         base_pos_start = self.x_0[:3]
-        base_pos_end = self.x_0[:3] + np.array([0., 0., -0.4])
-        base_pos_ref = self.x_0[:3] + np.array([0., 0., -0.4])[None, :] * np.linspace(0, 1, self.T-1)[:, None]
-
+        base_pos_end = self.x_0[:3] + np.array([0., 0., -0.55])
+        base_pos_ref = self.x_0[:3] + np.array([0., 0., -0.55])[None, :] * np.linspace(0, 1, self.T-1)[:, None]
+        # print(base_pos_start, base_pos_end)
         # --- G1 costs ---
         self.add_state_cost(
             "joint_pos",
-            self.quadratic_cost,
+            quadratic_cost_nb,
             G1.IDX_JOINT_POS,
             weights=cfg.joint_pos_weight,
             use_intial_as_ref=True,
@@ -106,7 +107,7 @@ class G1_ObjPickupFloor(NLP_MuJoCo):
         )
         # self.add_state_cost(
         #     "base_pos_xy",
-        #     self.quadratic_cost,
+        #     quadratic_cost_numba,
         #     [0, 1],
         #     weights=cfg.torso_pos_weight,
         #     use_intial_as_ref=True,
@@ -114,14 +115,14 @@ class G1_ObjPickupFloor(NLP_MuJoCo):
         # )
         self.add_state_cost(
             "joint_vel",
-            self.quadratic_cost,
+            quadratic_cost_nb,
             G1.IDX_JOINT_VEL,
             weights=cfg.joint_vel_weight,
             weights_terminal=cfg.joint_vel_weight*10.,
         )
         # self.add_sensor_cost(
         #     G1.Sensors.TORSO_POS,
-        #     self.quadratic_cost,
+        #     quadratic_cost_numba,
         #     weights=cfg.torso_pos_weight,
         #     weights_terminal=cfg.torso_pos_weight_terminal,
         #     ref_values=[0., 0., 0.4],
@@ -129,7 +130,7 @@ class G1_ObjPickupFloor(NLP_MuJoCo):
         # )
         self.add_state_cost(
             "base_pos",
-            self.quadratic_cost,
+            quadratic_cost_nb,
             [0, 1, 2],
             weights=cfg.torso_pos_weight,
             weights_terminal=cfg.torso_pos_weight_terminal,
@@ -138,19 +139,19 @@ class G1_ObjPickupFloor(NLP_MuJoCo):
         )
         # self.add_sensor_cost(
         #     G1.Sensors.TORSO_LINVEL,
-        #     self.quadratic_cost,
+        #     quadratic_cost_numba,
         #     weights=cfg.torso_linvel_weight,
         #     weights_terminal=cfg.torso_linvel_weight_terminal,
         # )
         # self.add_sensor_cost(
         #     G1.Sensors.TORSO_ANGVEL,
-        #     self.quadratic_cost,
+        #     quadratic_cost_numba,
         #     weights=cfg.torso_angvel_weight,
         #     weights_terminal=cfg.torso_angvel_weight_terminal,
         # )
         self.add_state_cost(
             "torso_quat",
-            self.quat_dist,
+            quaternion_dist_nb,
             [3, 4, 5, 6],
             weights=cfg.torso_quat_weight,
             weights_terminal=cfg.torso_quat_weight_terminal,
@@ -159,7 +160,7 @@ class G1_ObjPickupFloor(NLP_MuJoCo):
         # --- Obj cost ---
         # self.add_state_cost(
         #     "obj_position",
-        #     self.quadratic_cost,
+        #     quadratic_cost_numba,
         #     G1.IDX_BOX_POS,
         #     weights=cfg.obj_pos_weight,
         #     weights_terminal=cfg.obj_pos_weight_terminal,
@@ -168,7 +169,7 @@ class G1_ObjPickupFloor(NLP_MuJoCo):
         # )
         # self.add_state_cost(
         #     "obj_quat",
-        #     self.quat_dist,
+        #     quaternion_dist_numba,
         #     G1.IDX_BOX_QUAT,
         #     weights=cfg.obj_quat_weight,
         #     weights_terminal=cfg.obj_quat_weight_terminal,
@@ -176,14 +177,14 @@ class G1_ObjPickupFloor(NLP_MuJoCo):
         # )
         # self.add_state_cost(
         #     "obj_linvel",
-        #     self.quadratic_cost,
+        #     quadratic_cost_numba,
         #     G1.IDX_BOX_LINVEL,
         #     weights=cfg.obj_linvel_weight,
         #     weights_terminal=cfg.obj_linvel_weight*10,
         # )
         # self.add_state_cost(
         #     "obj_angvel",
-        #     self.quadratic_cost,
+        #     quadratic_cost_numba,
         #     G1.IDX_BOX_ANGVEL,
         #     weights=cfg.obj_angvel_weight,
         #     weights_terminal=cfg.obj_angvel_weight*10,
@@ -191,38 +192,43 @@ class G1_ObjPickupFloor(NLP_MuJoCo):
 
         # --- Contact plan hands ---
         self.set_contact_sensor_id(G1.Sensors.HAND_CONTACTS, G1.Sensors.cnt_status_hand_id) # For plotting
-        self.contact_plan = np.zeros((self.T, G1.N_HANDS))
+        self.contact_plan = np.zeros((self.T, G1.N_HANDS), dtype=np.uint8)
         self.contact_plan[node_impact:] = 1.
+        self.add_sensor_cost(
+            G1.Sensors.HAND_CONTACTS,
+            hamming_dist_nb,
+            sub_idx_sensor=G1.Sensors.cnt_status_hand_id,
+            ref_values=self.contact_plan[:-1],
+            ref_values_terminal=self.contact_plan[-1:],
+            weights=cfg.contact_hands_weight,
+        )
         # self.add_sensor_cost(
         #     G1.Sensors.HAND_CONTACTS,
-        #     self.contact_cost,
-        #     sub_idx_sensor=G1.Sensors.cnt_status_hand_id,
-        #     ref_values=self.contact_plan[:-1],
-        #     ref_values_terminal=self.contact_plan[-1:],
-        #     weights=cfg.contact_hands_weight,
-        # )
-        # self.add_sensor_cost(
-        #     G1.Sensors.HAND_CONTACTS,
-        #     self.quadratic_cost,
+        #     quadratic_cost_numba,
         #     sub_idx_sensor=G1.Sensors.cnt_force_hand_id,
         #     weights=cfg.contact_force_obj_weight,
         # )
         # self.add_sensor_cost(
         #     G1.Sensors.HAND_CONTACTS,
-        #     self.quadratic_cost,
+        #     quadratic_cost_numba,
         #     sub_idx_sensor=G1.Sensors.cnt_torque_hand_id,
         #     weights=cfg.contact_torque_obj_weight,
         # )
 
         # --- Contact plan feet ---
-        self.contact_plan_feet = np.full((self.T, G1.N_FEET * G1.cnt_sensor_per_foot), 1) # feet always in contact
+        self.contact_plan_feet = np.full((self.T, G1.N_FEET * G1.cnt_sensor_per_foot), 1, dtype=np.uint8) # feet always in contact
         # Add one step
-        # pad = 5
-        # start, end = pad, node_impact - pad
-        # self.contact_plan_feet[start:end, :(G1.N_FEET * G1.cnt_sensor_per_foot) // 2] = 0
+        start = 10
+        duration = 0.6
+        end = start + int(duration / self.dt)
+        self.contact_plan_feet[start:end, :(G1.N_FEET * G1.cnt_sensor_per_foot) // 2] = 0
+        self.contact_plan_feet[end:, 0] = 0
+        self.contact_plan_feet[end:, 2] = 0
+
+        
         self.add_sensor_cost(
             G1.Sensors.FEET_CONTACTS,
-            self.contact_cost,
+            hamming_dist_nb,
             sub_idx_sensor=G1.Sensors.cnt_status_feet_id,
             ref_values=self.contact_plan_feet[:-1],
             ref_values_terminal=self.contact_plan_feet[-1:],
@@ -230,7 +236,7 @@ class G1_ObjPickupFloor(NLP_MuJoCo):
         )
         self.add_sensor_cost(
             G1.Sensors.FEET_CONTACTS,
-            self.quadratic_cost,
+            quadratic_cost_nb,
             sub_idx_sensor=G1.Sensors.cnt_force_feet_id,
             weights=cfg.contact_force_feet_weight,
         )
@@ -243,7 +249,7 @@ class G1_ObjPickupFloor(NLP_MuJoCo):
 
         # self.add_sensor_cost(
         #     G1.Sensors.OBJ_FLOOR_CONTACT,
-        #     self.contact_cost,
+        #     hamming_dist_numba,
         #     sub_idx_sensor=[0],
         #     ref_values=self.contact_plan_obj[:-1],
         #     weights=cfg.contact_obj_weight,
@@ -255,21 +261,22 @@ class G1_ObjPickupFloor(NLP_MuJoCo):
         w_u_traj[G1.IDX_WAIST+1:] *= cfg.u_weight_upperbody_scale
         self.add_control_cost(
             "u_traj",
-            self.quadratic_cost,
+            quadratic_cost_nb,
             idx=list(range(self.Nu)),
             weights=w_u_traj,
         )
         # self.add_sensor_cost(
         #     G1.Sensors.TORQUES,
-        #     self.quadratic_cost,
+        #     quadratic_cost_numba,
         #     weights=cfg.u_torques
         #     )
 
     @staticmethod
-    def contact_cost(cnt_status_rollout, cnt_plan, weights) -> float:
+    def hamming_dist(cnt_status_rollout, cnt_plan, weights) -> float:
         cnt_status_rollout[cnt_status_rollout > 1] = 1
+        print(cnt_status_rollout.dtype)
         return np.sum(weights[None, ...] * np.float32(cnt_status_rollout != cnt_plan[None, ...]), axis=(-1, -2))
 
     @staticmethod
-    def quat_dist(var, ref, weights) -> float:
+    def quaternion_dist_numba(var, ref, weights) -> float:
         return np.sum(weights[:, 0] * (1.0 - np.square(np.sum(var * ref[None, ...], axis=-1))), axis=(-1))

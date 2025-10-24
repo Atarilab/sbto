@@ -126,25 +126,23 @@ RESTRICTED_JOINT_RANGE = (
     (-1, 1),
     (-1., 1.57),
     (-1., 1.),
-    (-1.57, -1.57), # 0 range for the yaw wrists
     # Right shoulder.
     (-1.57, 1.57),
     (-1.57, 0.2),
     (-1, 1),
     (-1., 1.57),
     (-1., 1.),
-    (1.57, 1.57), # 0 range for the yaw wrists
 )
 
 # --- System DOFs ---
-NDOF_G1 = 25  # robot: 23 + 2 wrists
+NDOF_G1 = 23  # robot: 23 + 2 wrists
 NQ_G1 = 7 + NDOF_G1        # 7 for base pose (3 pos + 4 quat)
 NV_G1 = 6 + NDOF_G1        # 6 for base velocity (3 lin + 3 ang)
-iNV_G1 = NQ_G1 + 7         # NQ + 7 for obj
+iNV_G1 = NQ_G1 + 7        # NQ + 7 for obj
 
 # --- Robot joint indices ---
 IDX_JOINT_POS = list(range(7, 7 + NDOF_G1))              # qpos indices for joints
-IDX_JOINT_VEL = list(range(iNV_G1, iNV_G1 + NDOF_G1))    # qvel indices for joints
+IDX_JOINT_VEL = list(range(NQ_G1, NQ_G1 + NDOF_G1))    # qvel indices for joints
 
 # Example subgroups (these depend on your robot’s joint ordering)
 IDX_HIP_KNEE = [0, 3, 6, 9]       # example leg joint indices
