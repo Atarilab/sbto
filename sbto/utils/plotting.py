@@ -286,6 +286,10 @@ def plot_contact_plan(
     if len(ee_labels) == 0:
         ee_labels = [f"EE {i}" for i in range(N)]
 
+    # cast to float
+    contact_array = np.float32(contact_array)
+    ref_array = np.float32(ref_array)
+
     fig, ax = plt.subplots(figsize=(8, max(2, N * 0.6)))
 
     def draw_contacts(array, color, alpha=1.0, zorder=1, height=0.6):
