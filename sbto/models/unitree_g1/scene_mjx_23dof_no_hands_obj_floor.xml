@@ -1,7 +1,7 @@
 <mujoco model="g1 mjx flat terrain scene">
 
   <include file="g1_mjx_23dof_no_hands.xml"/>
-  <include file="utils/class/obj_class.xml"/>
+  <include file="utils/class/obj.xml"/>
 
   <statistic center="0 0 0.7" extent="1.2" meansize="0.02"/>
 
