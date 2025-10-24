@@ -34,8 +34,8 @@
         <contact geom1="floor" geom2="right_foot3_collision" reduce="maxforce" data="found force" num="1" name="right_foot3"/>
 
         <!-- hands contact -->
-        <contact geom1="obj" geom2="left_hand_collision" reduce="maxforce" data="found force torque" num="1" name="left_hand_cnt"/>
-        <contact geom1="obj" geom2="right_hand_collision" reduce="maxforce" data="found force torque" num="1" name="right_hand_cnt"/>
+        <contact geom1="obj" geom2="left_hand_collision" reduce="maxforce" data="found force" num="1" name="left_hand_cnt"/>
+        <contact geom1="obj" geom2="right_hand_collision" reduce="maxforce" data="found force" num="1" name="right_hand_cnt"/>
 
         <!-- obj - table  -->
         <contact geom1="obj" geom2="table" reduce="maxforce" data="found force" num="1" name="obj_table_cnt"/>

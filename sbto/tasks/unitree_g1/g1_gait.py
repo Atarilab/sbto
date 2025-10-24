@@ -1,7 +1,7 @@
 import os
 import numpy as np
 from sbto.mj.nlp_mj import NLP_MuJoCo
-import sbto.tasks.unitree_g1.constants.g1_constants as G1
+import sbto.tasks.unitree_g1.g1_constants as G1
 from sbto.utils.gait import GaitConfig, generate_contact_plan
 from sbto.mj.nlp_mj import ConfigNLP_Mj, dataclass
 from sbto.utils.cost import quadratic_cost_nb, quaternion_dist_nb, hamming_dist_nb
@@ -73,10 +73,10 @@ class G1_Gait(NLP_MuJoCo):
         # --- Initial state setup ---
         self.set_initial_state_from_keyframe(cfg.keyframe_name)
 
-        self.q_min = np.array(G1.RESTRICTED_JOINT_RANGE)[:, 0]
-        self.q_max = np.array(G1.RESTRICTED_JOINT_RANGE)[:, 1]
+        self.q_min = np.array(G1._23DoF.RESTRICTED_JOINT_RANGE)[:, 0]
+        self.q_max = np.array(G1._23DoF.RESTRICTED_JOINT_RANGE)[:, 1]
 
-        self.q_nom = self.x_0[G1.IDX_JOINT_POS]
+        self.q_nom = self.x_0[G1._23DoF.IDX_JOINT_POS]
         self.a_min = self.q_nom - self.q_min
         self.a_max = self.q_max - self.q_nom
 
@@ -86,7 +86,7 @@ class G1_Gait(NLP_MuJoCo):
         self.add_state_cost(
             "joint_pos",
             quadratic_cost_nb,
-            G1.IDX_JOINT_POS,
+            G1._23DoF.IDX_JOINT_POS,
             weights=cfg.joint_pos_weight,
             use_intial_as_ref=True,
             weights_terminal=cfg.joint_pos_weight_terminal,
@@ -94,13 +94,13 @@ class G1_Gait(NLP_MuJoCo):
         self.add_state_cost(
             "joint_vel_upper",
             quadratic_cost_nb,
-            G1.IDX_JOINT_VEL[G1.IDX_WAIST-7:],
+            G1._23DoF.IDX_JOINT_VEL[G1._23DoF.IDX_WAIST-7:],
             weights=cfg.joint_vel_weight,
         )
         self.add_state_cost(
             "joint_vel_lower",
             quadratic_cost_nb,
-            G1.IDX_JOINT_VEL[:G1.IDX_WAIST-7],
+            G1._23DoF.IDX_JOINT_VEL[:G1._23DoF.IDX_WAIST-7],
             weights=cfg.joint_vel_weight * cfg.joint_vel_lower_mult,
         )
         self.add_sensor_cost(
@@ -171,7 +171,7 @@ class G1_Gait(NLP_MuJoCo):
 
         # --- Control cost ---
         w_u_traj = np.full(self.Nu, cfg.u_weight_default)
-        w_u_traj[list(G1.IDX_HIP_KNEE)] *= cfg.u_weight_hip_knee_scale
+        w_u_traj[list(G1._23DoF.IDX_HIP_KNEE)] *= cfg.u_weight_hip_knee_scale
         w_u_traj[13:] *= cfg.u_weight_upperbody_scale
         self.add_control_cost(
             "u_traj",
