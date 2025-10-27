@@ -1,27 +1,42 @@
-# sbto/tasks/unitree_g1/g1_gait_go2.py
 
 import os
 import numpy as np
 import mujoco
-
 from sbto.mj.nlp_mj import NLP_MuJoCo
-import sbto.tasks.unitree_g1.g1_constants as const
+from sbto.utils.config import ConfigBase, dataclass
+import numpy as np
+import sbto.tasks.unitree_go2.go2_constants as GO2
+from sbto.utils.gait import GaitConfig, generate_contact_plan, quad_trot
+
+@dataclass
+class ConfigGo2Gait(ConfigBase):
+    T: int = 80
+    interp_kind: str = "quadratic"
+    Nthread: int = -1
+    Nknots: int = 15
+    scene: str = "scene_position.xml"
+    contact_weight: float = 25.0 #how strongly to follow the planned contact pattern
+    contact_weight_term: float = 25.0 # Enforce correct contact at the final step
+    contact_force_weight: float = 1e-3 #Penalize large ground forces
+    stance_ratio: list = (0.5, 0.5, 0.5, 0.5) 
+    phase_offset: list = (0.5, 0.0, 0.0, 0.5) #Relative timing between legs
+    nominal_period: float = 0.5 #pattern repeats every 0.5 seconds.
 
 
-class Go2_Gait(NLP_MuJoCo):
+    def __post_init__(self):
+        self._filename = "config_go2_gait.yaml"  
     
+class Go2_Gait(NLP_MuJoCo):
     SCENE = "scene_position.xml"
+    def __init__(self, cfg):
+        
+        T = cfg.T
+        Nknots = cfg.Nknots
+        interp_kind = cfg.interp_kind
+        Nthread = cfg.Nthread
 
-    def __init__(
-        self,
-        T,
-        Nknots=0,
-        interp_kind="linear",
-        Nthread=-1,
-    ):
-        xml_path = os.path.join(const.XML_DIR_PATH, Go2_Gait.SCENE)
-        super().__init__(xml_path, T, Nknots, interp_kind, Nthread) #Loads the MuJoCo model
-
+        xml_path = os.path.join(GO2.XML_DIR_PATH, cfg.scene)
+        super().__init__(xml_path, T, Nknots, interp_kind, Nthread)
         #  initial state
         self.set_initial_state_from_keyframe("home")
 
@@ -142,6 +157,34 @@ class Go2_Gait(NLP_MuJoCo):
             idx=list(range(self.Nu)),
             weights=0.01,
         )
+        # --- Contact plan ---
+
+        gait = quad_trot 
+
+        self.set_contact_sensor_id(
+            GO2.Sensors.FEET_CONTACTS,
+            GO2.Sensors.cnt_status_id
+        )
+
+        self.contact_plan = generate_contact_plan(cfg.T, self.dt, gait)
+        self.contact_plan = self.contact_plan.repeat(GO2.cnt_sensor_per_foot, axis=-1)
+        self.add_sensor_cost(
+        GO2.Sensors.FEET_CONTACTS,
+        self.contact_cost,
+        sub_idx_sensor=GO2.Sensors.cnt_status_id,
+        ref_values=self.contact_plan[:-1],
+        ref_values_terminal=self.contact_plan[-1:],
+        weights=cfg.contact_weight,
+        weights_terminal=cfg.contact_weight_term,
+        )
+
+        self.add_sensor_cost(
+        GO2.Sensors.BASE_QUAT,    
+        self.quat_dist,
+        weights=0.1,                
+        weights_terminal=30.0,
+        use_intial_as_ref=True,
+        )
 
     @staticmethod
     def contact_cost(cnt_status_rollout, cnt_plan, weights) -> float:
@@ -158,9 +201,9 @@ class Go2_Gait(NLP_MuJoCo):
             axis=(-1),
         )
 
+ 
+
     def get_q_des_from_u_traj(self, act):
-        act = np.clip(act, -1.0, 1.0)
+        act = np.clip(act * self.action_scale, -1.0, 1.0)
         q_des = np.where(act < 0, act * self.a_min, act * self.a_max) + self.q_nom
         return q_des
-    
-    #specify contacts (create contact plan)

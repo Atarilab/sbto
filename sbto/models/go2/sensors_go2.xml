@@ -1,0 +1,34 @@
+<mujoco>
+  <sensor>
+
+    <!-- ===== Actuator torques (12 DOF) ===== -->
+    <actuatorfrc name="FR_hip_torque"   actuator="FR_hip"/>
+    <actuatorfrc name="FR_thigh_torque" actuator="FR_thigh"/>
+    <actuatorfrc name="FR_calf_torque"  actuator="FR_calf"/>
+
+    <actuatorfrc name="FL_hip_torque"   actuator="FL_hip"/>
+    <actuatorfrc name="FL_thigh_torque" actuator="FL_thigh"/>
+    <actuatorfrc name="FL_calf_torque"  actuator="FL_calf"/>
+
+    <actuatorfrc name="RR_hip_torque"   actuator="RR_hip"/>
+    <actuatorfrc name="RR_thigh_torque" actuator="RR_thigh"/>
+    <actuatorfrc name="RR_calf_torque"  actuator="RR_calf"/>
+
+    <actuatorfrc name="RL_hip_torque"   actuator="RL_hip"/>
+    <actuatorfrc name="RL_thigh_torque" actuator="RL_thigh"/>
+    <actuatorfrc name="RL_calf_torque"  actuator="RL_calf"/>
+
+    <!-- ===== Foot–floor contact sensors (one per foot) ==== -->
+    <contact geom1="floor" geom2="FR" reduce="maxforce" data="found force" num="1" name="FR_foot"/>
+    <contact geom1="floor" geom2="FL" reduce="maxforce" data="found force" num="1" name="FL_foot"/>
+    <contact geom1="floor" geom2="RR" reduce="maxforce" data="found force" num="1" name="RR_foot"/>
+    <contact geom1="floor" geom2="RL" reduce="maxforce" data="found force" num="1" name="RL_foot"/>
+
+    <!-- ===== Base (IMU at site="imu") ===== -->
+    <framepos   objtype="site" objname="imu" name="global_position"/>
+    <framelinvel objtype="site" objname="imu" name="global_linvel"/>
+    <frameangvel objtype="site" objname="imu" name="global_angvel"/>
+    <framequat  objtype="site" objname="imu" name="orientation"/>
+
+  </sensor>
+</mujoco>

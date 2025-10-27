@@ -1,12 +1,11 @@
 import os
-
 from sbto.tasks.unitree_g1.g1_gait import G1_Gait, ConfigG1Gait
 from sbto.mj.solver.cem import CEM, CEMConfig
 from sbto.utils.exp_manager import run_experiments
 
 def main():
     cfg_nlp = ConfigG1Gait(
-        T=200,
+        T=80,
         interp_kind="quadratic",
         Nthread=112,
         Nknots=15
