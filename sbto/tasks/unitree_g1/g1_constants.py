@@ -26,6 +26,10 @@ class Sensors:
     ]
     OBJ_TABLE_CONTACT = ["obj_table_cnt"]
     OBJ_FLOOR_CONTACT = ["obj_floor_cnt"]
+    HAND_POS = [
+        "left_hand_pos",
+        "right_hand_pos",
+    ]
     FEET_POS = [
         "left_foot_pos",
         "right_foot_pos",
@@ -157,6 +161,39 @@ class _25DoF_Obj:
     IDX_BOX_LINVEL = list(range(iNV_G1 + NV_G1, iNV_G1 + NV_G1 + 3))
     IDX_BOX_ANGVEL = list(range(iNV_G1 + NV_G1 + 3, iNV_G1 + NV_G1 + 6))
 
+class _25DoF_ObjFloor(_25DoF_Obj):
+    RESTRICTED_JOINT_RANGE = (
+        # Left leg.
+        (-2.57, 0.1),
+        (-0.5, 0.5),
+        (-0.5, 0.5),
+        (0, 2.57),
+        (-0.5, 0.7),
+        (-0.2, 0.2),
+        # Right leg.
+        (-2.57, 0.1),
+        (-0.5, 0.5),
+        (-0.5, 0.5),
+        (0, 2.57),
+        (-0.5, 0.7),
+        (-0.2, 0.2),
+        # Waist.
+        (-0.5, 0.5),
+        # Left shoulder.
+        (-1.57, 1.57),
+        (-0.2, 1.57),
+        (-1, 1),
+        (-1., 1.57),
+        (-1., 1.),
+        (-1.57, -1.57), # 0 range for the yaw wrists
+        # Right shoulder.
+        (-1.57, 1.57),
+        (-1.57, 0.2),
+        (-1, 1),
+        (-1., 1.57),
+        (-1., 1.),
+        (1.57, 1.57), # 0 range for the yaw wrists
+    )
 
 class _23DoF:
     RESTRICTED_JOINT_RANGE = (

@@ -1,7 +1,7 @@
 <mujoco model="g1_mjx_23dof_hands">
   <compiler angle="radian" meshdir="assets"/>
 
-  <option iterations="4" ls_iterations="8" timestep="0.01" integrator="implicitfast">
+  <option iterations="8" ls_iterations="8" timestep="0.01" integrator="implicitfast">
     <flag eulerdamp="disable"/>
   </option>
 

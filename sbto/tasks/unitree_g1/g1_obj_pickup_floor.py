@@ -2,67 +2,57 @@ import os
 import numpy as np
 from sbto.mj.nlp_mj import NLP_MuJoCo
 import sbto.tasks.unitree_g1.g1_constants as G1
-from sbto.utils.gait import GaitConfig, generate_contact_plan
 from sbto.mj.nlp_mj import ConfigNLP_Mj, dataclass
 from sbto.utils.cost import quadratic_cost_nb, quaternion_dist_nb, hamming_dist_nb
 
 @dataclass
 class ConfigG1ObjPickupFloor(ConfigNLP_Mj):
-    # Scene
+    # Scene file
     scene_file: str = "scene_mjx_23dof_no_hands_obj_floor.xml"
 
-    # --- Joint reference ---
+    # Keyframe used to initialize the robot
     keyframe_name: str = "knees_bent_wrist_yaw_90deg"
 
-    # --- State costs ---
-    joint_pos_weight: float = 0.0
-    joint_pos_weight_terminal: float = 0.
-    joint_vel_weight: float = 0.001
-    
-    # --- Obj state goal ---
-    obj_init_pos: tuple = (0.4, 0., 0.115)
-    obj_delta_position: tuple = (0., 0., 0.0)
-    obj_delta_orientation: tuple = (0., 0., 0.)
-    reaching_cnt_time: float = 1.4
-    delay_lift: float = 0.6
+    # --- Timing ---
+    squat_time: float = 1.     # seconds to reach squat pose
+    pickup_time: float = 0.2   # seconds to reach the box after squatting
+    standup_time: float = 0.1  # seconds to reach the box after pickup
 
-    # --- Obj state costs ---
-    obj_pos_weight: float = 5.0
-    obj_pos_weight_terminal: float = (50., 50., 50.0)
-    obj_quat_weight: float = 1.0
-    obj_quat_weight_terminal: float = 25.0 
-    obj_linvel_weight: float = 3.
-    obj_angvel_weight: float = 1.
-    
-    # --- Torso position cost ---
-    torso_pos_weight: float = (2., 2., 20.)
-    torso_pos_weight_terminal: float = (0.1, 0.1, 200.0)
+    # -- Obj Goal ---
+    obj_init_pos: tuple = (0.35, 0., 0.115)
+    obj_delta_position: tuple = (0., 0., 0.7)
 
-    # --- Torso linear velocity cost ---
-    torso_linvel_weight: tuple = (1.0, 1.0, 1.0)
-    torso_linvel_weight_terminal: tuple = (5.0, 5.0, 10.0)
+    obj_pos_weight: float = 0.
+    obj_pos_weight_terminal: float = (10.0, 10.0, 5.0)
+    obj_quat_weight: float = 1.
+    obj_quat_weight_terminal: float = 1.
 
-    # --- Torso angular velocity cost ---
-    torso_angvel_weight: float = 1.
-    torso_angvel_weight_terminal: float = 10.
+    # --- Weights ---
+    joint_pos_weight: float = 0.2
+    joint_pos_weight_terminal: float = 2e2
+    joint_vel_weight: float = 1e-2
+    joint_vel_weight_terminal: float = 0.1
 
-    # --- Torso orientation cost ---
-    torso_quat_weight: float = 0.
-    torso_quat_weight_terminal: float = 10.0
+    base_height_weight: float = 2.
+    base_height_weight_terminal: float = 75.0
 
-    # --- Contact plan and cost ---
-    contact_obj_weight: float = 10.
-    contact_hands_weight: float = 10.
-    contact_force_obj_weight: float = 2.0e-3
-    contact_torque_obj_weight: float = 1.0e-3
-    contact_feet_weight: float = 10.0
-    contact_force_feet_weight: float = 1.0e-4
+    base_quat_weight: float = 3.
+    base_quat_weight_terminal: float = 50.0
 
-    # --- Control cost ---
-    u_weight_default: float = 0.01
-    u_weight_hip_knee_scale: float = 0.1
-    u_weight_upperbody_scale: float = 0.5
-    u_torques: float = 1.0e-5
+    torso_pos_weight: tuple = (2., 2., 1.)
+    torso_pos_weight_terminal: tuple = (30.0, 30.0, 30.0)
+
+    obj_linvel_weight: float = 1.0e-3
+    obj_angvel_weight: float = 1.0e-3
+
+    # Hand contact to object
+    contact_hands_weight: float = 2.
+    contact_hands_force: float = 1.0e-6
+    contact_feet_weight: float = 0.1
+    contact_obj_weight: float = 2.
+
+    u_weight_default: float = 1e-4
+
 
 class G1_ObjPickupFloor(NLP_MuJoCo):
 
@@ -73,210 +63,190 @@ class G1_ObjPickupFloor(NLP_MuJoCo):
         # --- Initial state setup ---
         self.set_initial_state_from_keyframe(cfg.keyframe_name)
 
-        self.q_min = np.array(G1._25DoF_Obj.RESTRICTED_JOINT_RANGE)[:, 0]
-        self.q_max = np.array(G1._25DoF_Obj.RESTRICTED_JOINT_RANGE)[:, 1]
+        self.q_min = np.array(G1._25DoF_ObjFloor.RESTRICTED_JOINT_RANGE)[:, 0]
+        self.q_max = np.array(G1._25DoF_ObjFloor.RESTRICTED_JOINT_RANGE)[:, 1]
         self.q_nom = self.x_0[G1._25DoF_Obj.IDX_JOINT_POS]
 
-        obj_position_0 = np.array(cfg.obj_init_pos)
-        obj_position_goal = obj_position_0 + cfg.obj_delta_position
-        # self.x_0[G1._25DoF_Obj.IDX_BOX_POS] = self.obj_position_0
-        # self.set_initial_state(self.x_0)
-        node_impact = int(cfg.reaching_cnt_time // self.dt)
-        obj_position_ref = np.zeros((self.T, 3))
-        obj_position_ref += obj_position_0
-        t_ = np.arange(self.T - node_impact) * self.dt
-        dir = obj_position_goal - obj_position_0
-        obj_position_ref[node_impact:, :] += dir[None, ] * t_[:, None]
+        # Squat pose reference
+        stand_pose = self.mj_model.keyframe("knees_bent_wrist_yaw_90deg").qpos
+        squat_pose = self.mj_model.keyframe("knees_bent_pickup").qpos
+        lift_pose = self.mj_model.keyframe("home").qpos
 
-        torso_pos_ref = np.zeros((self.T, 3))
-        height_torso_obj_offset = 0.1
-        torso_pos_ref[:, -1] = obj_position_ref[:, -1] + height_torso_obj_offset
+        stand_joints = stand_pose[G1._25DoF_Obj.IDX_JOINT_POS]
+        pickup_joints = squat_pose[G1._25DoF_Obj.IDX_JOINT_POS]
+        lift_joints = lift_pose[G1._25DoF_Obj.IDX_JOINT_POS]
 
-        base_pos_start = self.x_0[:3]
-        base_pos_end = self.x_0[:3] + np.array([0., 0., -0.55])
-        base_pos_ref = self.x_0[:3] + np.array([0., 0., -0.55])[None, :] * np.linspace(0, 1, self.T-1)[:, None]
-        # print(base_pos_start, base_pos_end)
-        # --- G1 costs ---
+        # --- Time parameters ---
+        squat_node = int(cfg.squat_time / self.dt)
+        pickup_node = int((cfg.squat_time + cfg.pickup_time) / self.dt)
+        standup_node = int((cfg.squat_time + cfg.pickup_time + cfg.standup_time) / self.dt)
+
+        # Object goal
+        obj_position_goal = np.asarray(cfg.obj_init_pos) + np.asarray(cfg.obj_delta_position)
+        obj_position_ref = np.tile(cfg.obj_init_pos, (self.T-1, 1))
+        t_ = np.linspace(0, 1, self.T - standup_node - 1)
+        obj_position_ref[standup_node:, :] += obj_position_goal[None, ] * t_[:, None]
+
+        # --- Interpolate joints ---
+        joint_ref_traj = np.tile(stand_joints, (self.T-1, 1))
+        joint_pos_weight = np.full((self.T - 1, len(stand_joints)), cfg.joint_pos_weight)
+        # Squat down
+        alphas = np.linspace(0.2, 1.0, squat_node)
+        joint_ref_traj[:squat_node] = (1 - alphas)[:, None] * stand_joints[None, :] + alphas[:, None] * pickup_joints[None, :]
+        joint_pos_weight[squat_node-1] = cfg.joint_pos_weight_terminal
+        # Pickup in squat
+        joint_ref_traj[squat_node:standup_node] = pickup_joints
+        joint_pos_weight[squat_node:standup_node] = cfg.joint_pos_weight / 5.
+        # Standup
+        alphas = np.linspace(0., 1.0, self.T-standup_node-1)
+        joint_ref_traj[standup_node:] = (1 - alphas)[:, None] * pickup_joints[None, :] + alphas[:, None] * lift_joints[None, :]
+        joint_pos_weight[standup_node:] = cfg.joint_pos_weight / 10.
+        # --- Joint position cost ---
         self.add_state_cost(
             "joint_pos",
             quadratic_cost_nb,
             G1._25DoF_Obj.IDX_JOINT_POS,
-            weights=cfg.joint_pos_weight,
-            use_intial_as_ref=True,
-            weights_terminal=cfg.joint_pos_weight_terminal,
+            weights=joint_pos_weight,
+            ref_values=joint_ref_traj,
+            # weights_terminal=cfg.joint_pos_weight_terminal,
         )
-        # self.add_state_cost(
-        #     "base_pos_xy",
-        #     quadratic_cost_numba,
-        #     [0, 1],
-        #     weights=cfg.torso_pos_weight,
-        #     use_intial_as_ref=True,
-        #     weights_terminal=cfg.torso_pos_weight_terminal,
-        # )
+
+        # --- Joint velocity damping ---
         self.add_state_cost(
             "joint_vel",
             quadratic_cost_nb,
             G1._25DoF_Obj.IDX_JOINT_VEL,
             weights=cfg.joint_vel_weight,
-            weights_terminal=cfg.joint_vel_weight*10.,
+            weights_terminal=cfg.joint_vel_weight_terminal,
         )
-        # self.add_sensor_cost(
-        #     G1.Sensors.TORSO_POS,
-        #     quadratic_cost_numba,
-        #     weights=cfg.torso_pos_weight,
-        #     weights_terminal=cfg.torso_pos_weight_terminal,
-        #     ref_values=[0., 0., 0.4],
-        #     ref_values_terminal=[0., 0., 0.4]
-        # )
+
+        # --- Base height (smooth drop) ---
+        base_height_ref = np.tile(self.x_0[2], (self.T-1, ))
+        # Squat
+        base_height_ref[:squat_node] = np.linspace(self.x_0[2], squat_pose[2], squat_node)
+        alpha = 1.
+        base_height_ref[squat_node:standup_node] = squat_pose[2] / 2.
+        # Stand up
+        base_height_ref[standup_node:] = np.linspace(squat_pose[2], self.x_0[2], self.T-1-standup_node)
+        base_height_weight = np.full((self.T - 1, ), cfg.base_height_weight)
+        base_height_weight[squat_node:standup_node] = cfg.base_height_weight_terminal
+        base_height_weight[standup_node] = cfg.base_height_weight_terminal
         self.add_state_cost(
-            "base_pos",
+            "base_height",
+            quadratic_cost_nb,
+            2,
+            weights=base_height_weight,
+            ref_values=base_height_ref,
+            weights_terminal=cfg.base_height_weight_terminal,
+        )
+
+        # --- Torso position ---
+        self.add_state_cost(
+            G1.Sensors.TORSO_POS,
             quadratic_cost_nb,
             [0, 1, 2],
             weights=cfg.torso_pos_weight,
             weights_terminal=cfg.torso_pos_weight_terminal,
-            ref_values=base_pos_ref,
-            ref_values_terminal=base_pos_end,
-        )
-        # self.add_sensor_cost(
-        #     G1.Sensors.TORSO_LINVEL,
-        #     quadratic_cost_numba,
-        #     weights=cfg.torso_linvel_weight,
-        #     weights_terminal=cfg.torso_linvel_weight_terminal,
-        # )
-        # self.add_sensor_cost(
-        #     G1.Sensors.TORSO_ANGVEL,
-        #     quadratic_cost_numba,
-        #     weights=cfg.torso_angvel_weight,
-        #     weights_terminal=cfg.torso_angvel_weight_terminal,
-        # )
-        self.add_state_cost(
-            "torso_quat",
-            quaternion_dist_nb,
-            [3, 4, 5, 6],
-            weights=cfg.torso_quat_weight,
-            weights_terminal=cfg.torso_quat_weight_terminal,
             use_intial_as_ref=True,
         )
-        # --- Obj cost ---
-        # self.add_state_cost(
-        #     "obj_position",
-        #     quadratic_cost_numba,
-        #     G1._25DoF_Obj.IDX_BOX_POS,
-        #     weights=cfg.obj_pos_weight,
-        #     weights_terminal=cfg.obj_pos_weight_terminal,
-        #     ref_values_terminal=obj_position_goal,
-        #     use_intial_as_ref=True
-        # )
-        # self.add_state_cost(
-        #     "obj_quat",
-        #     quaternion_dist_numba,
-        #     G1._25DoF_Obj.IDX_BOX_QUAT,
-        #     weights=cfg.obj_quat_weight,
-        #     weights_terminal=cfg.obj_quat_weight_terminal,
-        #     use_intial_as_ref=True
-        # )
-        # self.add_state_cost(
-        #     "obj_linvel",
-        #     quadratic_cost_numba,
-        #     G1._25DoF_Obj.IDX_BOX_LINVEL,
-        #     weights=cfg.obj_linvel_weight,
-        #     weights_terminal=cfg.obj_linvel_weight*10,
-        # )
-        # self.add_state_cost(
-        #     "obj_angvel",
-        #     quadratic_cost_numba,
-        #     G1._25DoF_Obj.IDX_BOX_ANGVEL,
-        #     weights=cfg.obj_angvel_weight,
-        #     weights_terminal=cfg.obj_angvel_weight*10,
-        # )
+
+        # --- Base orientation ---
+        self.add_state_cost(
+            "base_quat",
+            quaternion_dist_nb,
+            [3, 4, 5, 6],
+            weights=cfg.base_quat_weight,
+            weights_terminal=cfg.base_quat_weight_terminal,
+            use_intial_as_ref=True
+        )
 
         # --- Contact plan hands ---
-        self.set_contact_sensor_id(G1.Sensors.HAND_CONTACTS, G1.Sensors.cnt_status_hand_id) # For plotting
-        self.contact_plan = np.zeros((self.T, G1.N_HANDS), dtype=np.uint8)
-        self.contact_plan[node_impact:] = 1.
+        contact_plan_hands = np.zeros((self.T-1, G1.N_HANDS), dtype=np.uint8)
+        contact_plan_hands[pickup_node:] = 1
         self.add_sensor_cost(
             G1.Sensors.HAND_CONTACTS,
             hamming_dist_nb,
             sub_idx_sensor=G1.Sensors.cnt_status_hand_id,
-            ref_values=self.contact_plan[:-1],
-            ref_values_terminal=self.contact_plan[-1:],
+            ref_values=contact_plan_hands,
             weights=cfg.contact_hands_weight,
+            weights_terminal=cfg.contact_hands_weight*50.,
         )
-        # self.add_sensor_cost(
-        #     G1.Sensors.HAND_CONTACTS,
-        #     quadratic_cost_numba,
-        #     sub_idx_sensor=G1.Sensors.cnt_force_hand_id,
-        #     weights=cfg.contact_force_obj_weight,
-        # )
-        # self.add_sensor_cost(
-        #     G1.Sensors.HAND_CONTACTS,
-        #     quadratic_cost_numba,
-        #     sub_idx_sensor=G1.Sensors.cnt_torque_hand_id,
-        #     weights=cfg.contact_torque_obj_weight,
-        # )
+        self.add_sensor_cost(
+            G1.Sensors.HAND_CONTACTS,
+            quadratic_cost_nb,
+            sub_idx_sensor=G1.Sensors.cnt_force_hand_id,
+            weights=cfg.contact_hands_force,
+        )
+
+        # --- Contact plan obj/floor ---
+        contact_plan_obj = np.full((self.T-1, 1), 1, dtype=np.uint8) # feet always in contact
+        contact_plan_obj[standup_node:, :] = 0
+
+        self.add_sensor_cost(
+            G1.Sensors.OBJ_FLOOR_CONTACT,
+            hamming_dist_nb,
+            sub_idx_sensor=[0],
+            ref_values=contact_plan_obj,
+            weights=cfg.contact_obj_weight,
+        )
 
         # --- Contact plan feet ---
-        self.contact_plan_feet = np.full((self.T, G1.N_FEET * G1.cnt_sensor_per_foot), 1, dtype=np.uint8) # feet always in contact
-        # Add one step
-        start = 10
-        duration = 0.6
-        end = start + int(duration / self.dt)
-        self.contact_plan_feet[start:end, :(G1.N_FEET * G1.cnt_sensor_per_foot) // 2] = 0
-        self.contact_plan_feet[end:, 0] = 0
-        self.contact_plan_feet[end:, 2] = 0
-
-        
+        contact_plan_feet = np.full((self.T-1, G1.N_FEET * G1.cnt_sensor_per_foot), 1, dtype=np.uint8) # feet always in contact
         self.add_sensor_cost(
             G1.Sensors.FEET_CONTACTS,
             hamming_dist_nb,
             sub_idx_sensor=G1.Sensors.cnt_status_feet_id,
-            ref_values=self.contact_plan_feet[:-1],
-            ref_values_terminal=self.contact_plan_feet[-1:],
+            ref_values=contact_plan_feet,
             weights=cfg.contact_feet_weight,
         )
-        self.add_sensor_cost(
-            G1.Sensors.FEET_CONTACTS,
-            quadratic_cost_nb,
-            sub_idx_sensor=G1.Sensors.cnt_force_feet_id,
-            weights=cfg.contact_force_feet_weight,
+
+        # Setup contact_plan for plots
+        cnt_sensors = G1.Sensors.HAND_CONTACTS + G1.Sensors.OBJ_FLOOR_CONTACT
+        sub_id_cnt_status = G1.Sensors.cnt_status_hand_id + [G1.Sensors.cnt_status_hand_id[-1] + 3 + 1]
+        self.set_contact_sensor_id(cnt_sensors, sub_id_cnt_status) # For plotting
+        self.contact_plan = np.concatenate(
+            (contact_plan_hands, contact_plan_obj),
+            axis=-1
         )
 
+        # --- Obj cost ---
+        self.add_state_cost(
+            "obj_position",
+            quadratic_cost_nb,
+            G1._25DoF_Obj.IDX_BOX_POS,
+            weights=cfg.obj_pos_weight,
+            weights_terminal=cfg.obj_pos_weight_terminal,
+            ref_values=obj_position_ref,
+            ref_values_terminal=obj_position_goal,
+        )
+        self.add_state_cost(
+            "obj_quat",
+            quadratic_cost_nb,
+            G1._25DoF_Obj.IDX_BOX_QUAT,
+            weights=cfg.obj_quat_weight,
+            weights_terminal=cfg.obj_quat_weight_terminal,
+            use_intial_as_ref=True
+        )
+        self.add_state_cost(
+            "obj_linvel",
+            quadratic_cost_nb,
+            G1._25DoF_Obj.IDX_BOX_LINVEL,
+            weights=cfg.obj_linvel_weight,
+            weights_terminal=cfg.obj_linvel_weight*10,
+        )
+        self.add_state_cost(
+            "obj_angvel",
+            quadratic_cost_nb,
+            G1._25DoF_Obj.IDX_BOX_ANGVEL,
+            weights=cfg.obj_angvel_weight,
+            weights_terminal=cfg.obj_angvel_weight*10,
+        )
 
-        # --- Contact obj floor ---
-        # self.contact_plan_obj = np.full((self.T, 1), 1) # feet always in contact
-        # node_lift_obj = node_impact + int(cfg.delay_lift // self.dt)
-        # self.contact_plan_obj[node_lift_obj:, :] = 0
-
-        # self.add_sensor_cost(
-        #     G1.Sensors.OBJ_FLOOR_CONTACT,
-        #     hamming_dist_numba,
-        #     sub_idx_sensor=[0],
-        #     ref_values=self.contact_plan_obj[:-1],
-        #     weights=cfg.contact_obj_weight,
-        # )
-
-        # --- Control cost ---
+        # --- Control regularization ---
         w_u_traj = np.full(self.Nu, cfg.u_weight_default)
-        w_u_traj[G1._25DoF_Obj.IDX_HIP_KNEE] *= cfg.u_weight_hip_knee_scale
-        w_u_traj[G1._25DoF_Obj.IDX_WAIST+1:] *= cfg.u_weight_upperbody_scale
         self.add_control_cost(
             "u_traj",
             quadratic_cost_nb,
             idx=list(range(self.Nu)),
             weights=w_u_traj,
         )
-        # self.add_sensor_cost(
-        #     G1.Sensors.TORQUES,
-        #     quadratic_cost_numba,
-        #     weights=cfg.u_torques
-        #     )
-
-    @staticmethod
-    def hamming_dist(cnt_status_rollout, cnt_plan, weights) -> float:
-        cnt_status_rollout[cnt_status_rollout > 1] = 1
-        print(cnt_status_rollout.dtype)
-        return np.sum(weights[None, ...] * np.float32(cnt_status_rollout != cnt_plan[None, ...]), axis=(-1, -2))
-
-    @staticmethod
-    def quaternion_dist_numba(var, ref, weights) -> float:
-        return np.sum(weights[:, 0] * (1.0 - np.square(np.sum(var * ref[None, ...], axis=-1))), axis=(-1))

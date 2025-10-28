@@ -40,6 +40,10 @@
         <!-- obj - table  -->
         <contact geom1="obj" geom2="floor" reduce="maxforce" data="found force" num="1" name="obj_floor_cnt"/>
 
+        <!-- hands position  -->
+        <framepos objtype="site" objname="right_palm" name="right_hand_pos"/>
+        <framepos objtype="site" objname="left_palm" name="left_hand_pos"/>
+
         <!-- obj position and orientation  -->
         <framepos objtype="geom" objname="obj" name="global_pos_obj"/>
         <framequat objtype="geom" objname="obj" name="global_quat_obj"/>

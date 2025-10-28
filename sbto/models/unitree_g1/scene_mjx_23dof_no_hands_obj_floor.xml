@@ -25,7 +25,7 @@
     <geom name="floor" size="0 0 0.01" type="plane" material="groundplane"/>
     <body name="obj">
       <freejoint name="floating_obj_joint"/>
-      <geom name="obj" size="0.1 0.1 0.115" pos="0.4 0. 0.115" class="dynamic" mass="0.6"/>
+      <geom name="obj" size="0.1 0.1 0.115" pos="0.35 0. 0.115" class="dynamic" mass="0.6"/>
     </body>
   </worldbody>
 
