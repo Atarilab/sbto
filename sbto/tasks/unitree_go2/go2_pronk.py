@@ -6,10 +6,10 @@ from sbto.mj.nlp_mj import NLP_MuJoCo
 from sbto.utils.config import ConfigBase, dataclass
 import numpy as np
 import sbto.tasks.unitree_go2.go2_constants as GO2
-from sbto.utils.gait import GaitConfig, generate_contact_plan, quad_trot
+from sbto.utils.gait import GaitConfig, generate_contact_plan, quad_jump
 
 @dataclass
-class ConfigGo2Gait(ConfigBase):
+class ConfigGo2Pronk(ConfigBase):
     T: int
     Nknots: int
     interp_kind: str = "linear"
@@ -17,7 +17,7 @@ class ConfigGo2Gait(ConfigBase):
     scene: str = "scene_position.xml"
     contact_weight: float = 10 #Penalizes deviation between planned and achieved contact
     contact_weight_term: float = 10 #Additional penalty at the final timestep to ensure stable final stance
-    #current best 10 for both
+
     contact_force_weight: float = 1e-5 #Penalize large ground forces/smooths contact transitions and avoids huge impulse/Between 1e-5 and 1e-3
     stance_ratio: list = (0.7, 0.7, 0.7, 0.7)  
     phase_offset: list = (0.0, 0.0, 0.0, 0.0) #Relative timing between legs
@@ -27,7 +27,7 @@ class ConfigGo2Gait(ConfigBase):
     def __post_init__(self):
         self._filename = "config_go2_gait.yaml"  
     
-class Go2_Gait(NLP_MuJoCo):
+class Go2_Pronk(NLP_MuJoCo):
     SCENE = "scene_position.xml"
     def __init__(self, cfg):
         
@@ -70,7 +70,7 @@ class Go2_Gait(NLP_MuJoCo):
         self.a_max = self.q_max - self.q_nom
 
         #  gait targets (what we want the robot to do)
-        self.v_des = np.array([0.5, 0.0, 0.0], dtype=float) #Goal: make the robot move forward at 0.5 m/s along X
+        self.v_des = np.array([0.0, 0.0, 0.0], dtype=float) #Goal: make the robot move forward at 0.5 m/s along X
 
         # time grid for position ramp
         t_grid = np.linspace(0.0, self.duration, num=T)[: self.T - 1]
@@ -78,14 +78,33 @@ class Go2_Gait(NLP_MuJoCo):
 
         idx_base_z = 2
         z0 = self.x_0[idx_base_z]
-        z_ref = np.full(self.T - 1, z0, dtype=float) #keeps base height near the initial value so the robot doesn’t sag or jump
+        # Make base height target “crouch → apex”
+        z_ref = np.full(self.T - 1, z0, dtype=float)
+        z_ref = (
+            z0
+            - 0.02 * np.exp(-0.5 * ((t_grid - 0.25 * cfg.nominal_period) / 0.06) ** 2)  # crouch ~2 cm
+            + 0.18 * np.exp(-0.5 * ((t_grid - 0.75 * cfg.nominal_period) / 0.08) ** 2)  # apex ~18 cm
+        )
 
         # base orientation 
         idx_base_quat = np.arange(3, 7)
-        quat_ref = np.tile(self.x_0[idx_base_quat], (self.T - 1, 1))  #keeps the robot upright (orientation quaternion fixed to initial)
+        quat_ref = np.tile(self.x_0[idx_base_quat], (self.T - 1, 1))  #keeps the robot upright
 
         # base linear velocity indices 
         idx_base_linvel = np.arange(Nq, Nq + 3)
+        
+         # vertical take-off impulse (sharp upward velocity)
+        takeoff_time = 0.75 * cfg.nominal_period   # end of stance for jump gait
+        burst_sigma = 0.03
+        vz_ref = 4.5 * np.exp(-0.5 * ((t_grid - takeoff_time) / burst_sigma) ** 2)
+        self.add_state_cost(
+            "vz_takeoff",
+            self.quadratic_cost,
+            [int(idx_base_linvel[2])],   # vz only (positional arg)
+            ref_values=vz_ref,
+            weights=120.0,
+            weights_terminal=40.0,
+        )
 
         #  costs 
         # joint pos near nominal 
@@ -93,9 +112,9 @@ class Go2_Gait(NLP_MuJoCo):
             "joint_pos", #Penalizes deviation of joint angles from self.q_nom (initial pose)
             self.quadratic_cost,
             idx_joint_pos,
-            weights=5.0, # weight on joint position error
+            weights=1.0, # weight on joint position error
             use_intial_as_ref=True,
-            weights_terminal=30.0, #more important at the end of the trajectory
+            weights_terminal=5.0, #	now 1 to 5 to joints move & allow power
         )  #if weight is high, legs won’t move much. If too low, legs can flop wildly
 
         #  joint vel damping
@@ -115,7 +134,7 @@ class Go2_Gait(NLP_MuJoCo):
             self.quadratic_cost,
             idx_base_z,
             ref_values=z_ref,
-            weights=30.0, #	Strongly punishes the base height deviating from z_ref.
+            weights=50.0, #	Strongly punishes the base height deviating from z_ref.
 
             weights_terminal=80.0,
         )
@@ -156,11 +175,11 @@ class Go2_Gait(NLP_MuJoCo):
             "u_traj", #Penalizes big control commands (smooths actions, avoids thrashy solutions).
             self.quadratic_cost,
             idx=list(range(self.Nu)),
-            weights=0.02,
+            weights=0.005,
         )
         # --- Contact plan ---
 
-        gait = quad_trot 
+        gait = quad_jump
 
         self.set_contact_sensor_id(
             GO2.Sensors.FEET_CONTACTS,

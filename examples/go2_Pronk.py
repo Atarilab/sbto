@@ -1,11 +1,10 @@
-
-from sbto.tasks.unitree_go2.go2_gait import Go2_Gait, ConfigGo2Gait
+from sbto.tasks.unitree_go2.go2_pronk import Go2_Pronk, ConfigGo2Pronk
 from sbto.mj.solver.cem import CEM, CEMConfig
 from sbto.utils.exp_manager import run_experiments
 
 
 def main():
-    cfg_nlp = ConfigGo2Gait(
+    cfg_nlp = ConfigGo2Pronk(
         T=700,
         interp_kind="quadratic",
         Nthread=-1,
@@ -24,7 +23,7 @@ def main():
     )
 
     run_experiments(
-        Go2_Gait,
+        Go2_Pronk,
         cfg_nlp,
         CEM,
         cfg_solver,
