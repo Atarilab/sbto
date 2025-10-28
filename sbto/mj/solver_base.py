@@ -144,6 +144,7 @@ class SamplingBasedSolver(ABC):
         """
         states = [deepcopy(state)]
         all_costs = []
+        all_samples = []
         min_cost_all = np.inf
         best_u_all = None
         pbar = trange(self.N_it, desc="Optimizing", leave=True)
@@ -156,6 +157,7 @@ class SamplingBasedSolver(ABC):
 
             states.append(deepcopy(state))
             all_costs.append(costs)
+            all_samples.append(eps)
 
             if state.min_cost_all < min_cost_all:
                 min_cost_all = state.min_cost_all
@@ -169,7 +171,7 @@ class SamplingBasedSolver(ABC):
         print(f"Solving time: {duration:.2f}s")
 
         all_costs = np.asarray(all_costs).reshape(self.N_it, -1)
-        return states, best_u_all, min_cost_all, all_costs 
+        return states, best_u_all, min_cost_all, all_costs, all_samples
         
     def evaluate(self, samples_knots: Array) -> Tuple[Array, Array]:
         """
