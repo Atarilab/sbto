@@ -6,10 +6,10 @@ from sbto.utils.exp_manager import run_experiments
 
 def main():
     cfg_nlp = ConfigGo2Gait(
-        T=400,
+        T=500,
         interp_kind="quadratic",
         Nthread=-1,
-        Nknots=15,
+        Nknots=10,
         scene="scene_position.xml", 
     )
     cfg_solver = CEMConfig(

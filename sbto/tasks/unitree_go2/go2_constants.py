@@ -60,7 +60,7 @@ class Sensors:
             "RR_foot",
             "RL_foot",
     ]
-    cnt_status_id = [0]
+
     ee_labels = ["FR", "FL", "RR", "RL"] 
     cnt_status_id = [0, 1, 2, 3]
     cnt_force_id = []

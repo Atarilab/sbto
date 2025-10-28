@@ -10,15 +10,15 @@ from sbto.utils.gait import GaitConfig, generate_contact_plan, quad_trot
 
 @dataclass
 class ConfigGo2Gait(ConfigBase):
-    T: int = 80
-    interp_kind: str = "quadratic"
+    T: int
+    Nknots: int
+    interp_kind: str = "linear"
     Nthread: int = -1
-    Nknots: int = 15
     scene: str = "scene_position.xml"
-    contact_weight: float = 25.0 #how strongly to follow the planned contact pattern
-    contact_weight_term: float = 25.0 # Enforce correct contact at the final step
-    contact_force_weight: float = 1e-3 #Penalize large ground forces
-    stance_ratio: list = (0.5, 0.5, 0.5, 0.5) 
+    contact_weight: float = 5 #how strongly to follow the planned contact pattern
+    contact_weight_term: float = 10 #ensures the robot ends in a stable configuration, typically larger than contact_weight
+    contact_force_weight: float = 1e-5 #Penalize large ground forces/smooths contact transitions and avoids huge impulse/Between 1e-5 and 1e-3
+    stance_ratio: list = (0.6, 0.6, 0.6, 0.6)  #removed stance and phase and cost already got better
     phase_offset: list = (0.5, 0.0, 0.0, 0.5) #Relative timing between legs
     nominal_period: float = 0.5 #pattern repeats every 0.5 seconds.
 
@@ -203,7 +203,4 @@ class Go2_Gait(NLP_MuJoCo):
 
  
 
-    def get_q_des_from_u_traj(self, act):
-        act = np.clip(act * self.action_scale, -1.0, 1.0)
-        q_des = np.where(act < 0, act * self.a_min, act * self.a_max) + self.q_nom
-        return q_des
+    

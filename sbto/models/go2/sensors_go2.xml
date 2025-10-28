@@ -19,10 +19,10 @@
     <actuatorfrc name="RL_calf_torque"  actuator="RL_calf"/>
 
     <!-- ===== Foot–floor contact sensors (one per foot) ==== -->
-    <contact geom1="floor" geom2="FR" reduce="maxforce" data="found force" num="1" name="FR_foot"/>
-    <contact geom1="floor" geom2="FL" reduce="maxforce" data="found force" num="1" name="FL_foot"/>
-    <contact geom1="floor" geom2="RR" reduce="maxforce" data="found force" num="1" name="RR_foot"/>
-    <contact geom1="floor" geom2="RL" reduce="maxforce" data="found force" num="1" name="RL_foot"/>
+    <contact geom1="floor" geom2="FR" reduce="maxforce"  num="1" name="FR_foot"/>
+    <contact geom1="floor" geom2="FL" reduce="maxforce"  num="1" name="FL_foot"/>
+    <contact geom1="floor" geom2="RR" reduce="maxforce"  num="1" name="RR_foot"/>
+    <contact geom1="floor" geom2="RL" reduce="maxforce"  num="1" name="RL_foot"/>
 
     <!-- ===== Base (IMU at site="imu") ===== -->
     <framepos   objtype="site" objname="imu" name="global_position"/>
