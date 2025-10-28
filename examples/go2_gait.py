@@ -2,15 +2,16 @@
 from sbto.tasks.unitree_go2.go2_gait import Go2_Gait, ConfigGo2Gait
 from sbto.mj.solver.cem import CEM, CEMConfig
 from sbto.utils.exp_manager import run_experiments
+import mujoco
 
 
 def main():
     cfg_nlp = ConfigGo2Gait(
-        T=500,
+        T=700,
         interp_kind="quadratic",
         Nthread=-1,
-        Nknots=10,
-        scene="scene_position.xml", 
+        Nknots=10, #best is 10 so far
+        scene="scene_position.xml",  
     )
     cfg_solver = CEMConfig(
         N_samples=1024,
@@ -29,6 +30,7 @@ def main():
         CEM,
         cfg_solver,
         description="cem_go2_gait",
+        
     )
     
 if __name__ == "__main__":

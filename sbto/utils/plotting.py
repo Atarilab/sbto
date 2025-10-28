@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 import os
+from sbto.tasks.unitree_go2 import go2_constants as GO2
 
 Array = npt.NDArray[np.float64]
 

@@ -15,12 +15,13 @@ class ConfigGo2Gait(ConfigBase):
     interp_kind: str = "linear"
     Nthread: int = -1
     scene: str = "scene_position.xml"
-    contact_weight: float = 5 #how strongly to follow the planned contact pattern
-    contact_weight_term: float = 10 #ensures the robot ends in a stable configuration, typically larger than contact_weight
+    contact_weight: float = 10 #Penalizes deviation between planned and achieved contact
+    contact_weight_term: float = 10 #Additional penalty at the final timestep to ensure stable final stance
+    #current best 10 for both
     contact_force_weight: float = 1e-5 #Penalize large ground forces/smooths contact transitions and avoids huge impulse/Between 1e-5 and 1e-3
     stance_ratio: list = (0.6, 0.6, 0.6, 0.6)  #removed stance and phase and cost already got better
     phase_offset: list = (0.5, 0.0, 0.0, 0.5) #Relative timing between legs
-    nominal_period: float = 0.5 #pattern repeats every 0.5 seconds.
+    nominal_period: float = 0.7 #pattern repeats every 0.5 seconds.
 
 
     def __post_init__(self):
@@ -100,11 +101,12 @@ class Go2_Gait(NLP_MuJoCo):
 
         #  joint vel damping
         self.add_state_cost(
-            "joint_vel", #Penalizes joint velocities -> damps movement, prevents thrashing.
+            "joint_vel", #Penalizes joint velocities -> damps movement
 
             self.quadratic_cost,
             idx_joint_vel,
-            weights=1e-3, #Small weight 1e-3 just discourages extreme speeds.
+            weights=1e-2, 
+            weights_terminal=1e-2 #better when both 1e-2
 
         )
 
@@ -147,7 +149,7 @@ class Go2_Gait(NLP_MuJoCo):
             [0, 1],
             ref_values=xy_ref,          
             weights=[1.0, 1.0],
-            weights_terminal=[200.0, 200.0], #Terminal weights huge → the optimizer strongly prefers ending near the expected final xy.
+            weights_terminal=[30.0, 30.0], #Terminal weights huge → the optimizer strongly prefers ending near the expected final xy.
         )
 
         #  small control effort
@@ -155,7 +157,7 @@ class Go2_Gait(NLP_MuJoCo):
             "u_traj", #Penalizes big control commands (smooths actions, avoids thrashy solutions).
             self.quadratic_cost,
             idx=list(range(self.Nu)),
-            weights=0.01,
+            weights=0.02,
         )
         # --- Contact plan ---
 
@@ -185,6 +187,13 @@ class Go2_Gait(NLP_MuJoCo):
         weights_terminal=30.0,
         use_intial_as_ref=True,
         )
+        
+        self.add_sensor_cost( #Improve overall balance stability/Dampen sudden trunk rotations
+        GO2.Sensors.BASE_ANGVEL,  
+        self.quadratic_cost,
+        weights=1.0,
+        weights_terminal=10.0,
+        )
 
     @staticmethod
     def contact_cost(cnt_status_rollout, cnt_plan, weights) -> float:
@@ -200,7 +209,3 @@ class Go2_Gait(NLP_MuJoCo):
             weights[:, 0] * (1.0 - np.square(np.sum(var * ref[None, ...], axis=-1))),
             axis=(-1),
         )
-
- 
-
-    
