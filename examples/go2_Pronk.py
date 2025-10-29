@@ -27,7 +27,7 @@ def main():
         cfg_nlp,
         CEM,
         cfg_solver,
-        description="cem_go2_gait",
+        description="cem_go2_pronk",
         
     )
     

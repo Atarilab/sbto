@@ -70,7 +70,7 @@ class Go2_Pronk(NLP_MuJoCo):
         self.a_max = self.q_max - self.q_nom
 
         #  gait targets (what we want the robot to do)
-        self.v_des = np.array([0.0, 0.0, 0.0], dtype=float) #Goal: make the robot move forward at 0.5 m/s along X
+        self.v_des = np.array([0.0, 0.0, 0.0], dtype=float) #removed
 
         # time grid for position ramp
         t_grid = np.linspace(0.0, self.duration, num=T)[: self.T - 1]
