@@ -26,6 +26,10 @@ class Sensors:
     ]
     OBJ_TABLE_CONTACT = ["obj_table_cnt"]
     OBJ_FLOOR_CONTACT = ["obj_floor_cnt"]
+    OBJ_THIGH_COLLISION = [
+        "obj_right_thigh_cnt",
+        "obj_left_thigh_cnt",
+    ]
     HAND_POS = [
         "left_hand_pos",
         "right_hand_pos",
@@ -120,7 +124,7 @@ class _25DoF_Obj:
         (-0.5, 0.7),
         (-0.2, 0.2),
         # Waist.
-        (-0.5, 0.5),
+        (-0.25, 0.25),
         # Left shoulder.
         (-1.57, 1.57),
         (-0.2, 1.57),

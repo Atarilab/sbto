@@ -23,7 +23,7 @@ class ConfigG1ObjPickupFloor(ConfigNLP_Mj):
     obj_delta_position: tuple = (0., 0., 0.7)
 
     obj_pos_weight: float = 0.
-    obj_pos_weight_terminal: float = (10.0, 10.0, 5.0)
+    obj_pos_weight_terminal: float = (10.0, 10.0, 10.0)
     obj_quat_weight: float = 1.
     obj_quat_weight_terminal: float = 1.
 
@@ -40,16 +40,17 @@ class ConfigG1ObjPickupFloor(ConfigNLP_Mj):
     base_quat_weight_terminal: float = 50.0
 
     torso_pos_weight: tuple = (2., 2., 1.)
-    torso_pos_weight_terminal: tuple = (30.0, 30.0, 30.0)
+    torso_pos_weight_terminal: tuple = (50.0, 50.0, 30.0)
 
     obj_linvel_weight: float = 1.0e-3
-    obj_angvel_weight: float = 1.0e-3
+    obj_angvel_weight: float = 1.0e-2
 
     # Hand contact to object
-    contact_hands_weight: float = 2.
-    contact_hands_force: float = 1.0e-6
+    contact_hands_weight: float = 3.
+    contact_hands_force: float = 1.0e-5
     contact_feet_weight: float = 0.1
     contact_obj_weight: float = 2.
+    collision_obj_thigh: float = 1.
 
     u_weight_default: float = 1e-4
 
@@ -198,6 +199,15 @@ class G1_ObjPickupFloor(NLP_MuJoCo):
             sub_idx_sensor=G1.Sensors.cnt_status_feet_id,
             ref_values=contact_plan_feet,
             weights=cfg.contact_feet_weight,
+        )
+
+        # --- Collision obj - thigh ---
+        no_contact_plan_feet = np.zeros((self.T-1, len(G1.Sensors.OBJ_THIGH_COLLISION)), dtype=np.uint8) # feet always in contact
+        self.add_sensor_cost(
+            G1.Sensors.OBJ_THIGH_COLLISION,
+            hamming_dist_nb,
+            ref_values=no_contact_plan_feet,
+            weights=cfg.collision_obj_thigh,
         )
 
         # Setup contact_plan for plots
