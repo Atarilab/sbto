@@ -20,7 +20,7 @@ class ConfigG1Gait(ConfigNLP_Mj):
     # --- Desired gait parameters ---
     stance_ratio: tuple = (0.55, 0.55)
     phase_offset: tuple = (0.5, 0.0)
-    nominal_period = 0.9
+    nominal_period: float = 0.9
 
     # --- State costs ---
     joint_pos_weight: float = 0.
