@@ -103,9 +103,9 @@ def save_results(
         )
     
     contact_realized = nlp.get_contact_status(obs_traj)
-    contact_realized[contact_realized > 1] = 1
 
     if len(contact_realized) > 0:
+        contact_realized[contact_realized > 1] = 1
         contact_plan = nlp.contact_plan if hasattr(nlp, "contact_plan") else None
         plot_contact_plan(
             contact_realized,
@@ -215,7 +215,7 @@ def run_experiments(
                 state_solver = s.init_state()
             else:
                 state_solver = init_state_solver
-            solver_states, best_qdes_knots, cost, all_costs = s.solve(deepcopy(state_solver))
+            solver_states, best_qdes_knots, cost, all_costs, all_samples = s.solve(deepcopy(state_solver))
 
             # get final trajectories
             print("Best cost:", cost)

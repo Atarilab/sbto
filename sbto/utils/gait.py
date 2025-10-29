@@ -1,5 +1,4 @@
 import numpy as np
-from math import ceil
 from typing import List
 from dataclasses import dataclass
 
@@ -24,7 +23,7 @@ def generate_contact_plan(T: int, dt: float, config: GaitConfig) -> np.ndarray:
         contact_plan (np.ndarray): Shape (T, n_feet), binary contact states.
     """
     nodes_per_cycle = round(config.nominal_period / dt)
-    plan = np.zeros((T, config.n_feet), dtype=np.int8)
+    plan = np.zeros((T, config.n_feet), dtype=np.uint8)
 
     for foot_id, (stance, offset) in enumerate(zip(config.stance_ratio, config.phase_offset)):
         make_contact_phase = offset

@@ -7,6 +7,7 @@ from scipy.interpolate import interp1d
 from typing import TypeAlias
 from enum import Enum
 from functools import wraps, partial
+from numba import njit, prange
 
 Array = npt.NDArray[np.float64]
 IntArray = npt.NDArray[np.int64]
@@ -128,14 +129,20 @@ class NLPBase(ABC):
             )
         
     @staticmethod
-    def _extract_var(rollout_var: Array, idx: IntArray, terminal: bool) -> Array:
+    def _extract_var(rollout_var: np.ndarray, idx: np.ndarray, terminal: bool) -> np.ndarray:
         """
-        Select the relevant slice from a variable array depending on terminal flag.
+        Efficiently extract the relevant slice from rollout_var without using np.take_along_axis.
+        idx: expected shape (1, 1, I) or (I,)
         """
+        # Flatten idx since it always targets the last axis
+        idx_flat = np.ravel(idx)
+        
         if terminal:
-            return np.take_along_axis(rollout_var[:, -1:, :], idx, axis=-1)
+            # Take only last time step, keep time axis as length-1 for consistency
+            return rollout_var[:, -1:, idx_flat]
         else:
-            return np.take_along_axis(rollout_var[:, :-1, :], idx, axis=-1)
+            # Take all but last time step
+            return rollout_var[:, :-1, idx_flat]
 
     def _add_cost(self,
                 type: VarType,
@@ -158,7 +165,6 @@ class NLPBase(ABC):
 
         ref_values = self._normalize_cost_array(ref_values, T, I, name=f"ref_values of {name}")
         weights    = self._normalize_cost_array(weights,    T, I, name=f"weights of {name}")
-        idx = np.asarray(idx, dtype=np.int32).reshape(1, 1, -1)
 
         extractor = partial(self._extract_var, idx=idx, terminal=terminal)
         mapping = {
