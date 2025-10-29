@@ -3,6 +3,7 @@ from sbto.mj.solver.cem import CEM, CEMConfig
 from sbto.utils.exp_manager import run_experiments
 
 
+
 def main():
     cfg_nlp = ConfigGo2Pronk(
         T=700,

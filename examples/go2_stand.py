@@ -1,7 +1,7 @@
 import os
 
 from sbto.tasks.unitree_go2.go2_stand import Go2_Stand
-from sbto.mj.solver.efficient_cem import EfficientCEM
+from sbto.mj.solver.cem import CEM
 from sbto.utils.plotting import plot_state_control, plot_costs
 from sbto.utils.viewer import render_and_save_trajectory
 import mujoco
@@ -14,7 +14,7 @@ def main():
     nlp = Go2_Stand(T, Nknots, interp_kind="cubic", Nthread=-1)
     nlp._chunk_size = 2
 
-    solver = EfficientCEM(
+    solver = CEM(
         nlp,
         N_samples=512,
         elite_frac=0.03,

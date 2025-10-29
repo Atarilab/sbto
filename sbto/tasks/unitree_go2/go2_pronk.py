@@ -19,7 +19,7 @@ class ConfigGo2Pronk(ConfigBase):
     contact_weight_term: float = 10 #Additional penalty at the final timestep to ensure stable final stance
 
     contact_force_weight: float = 1e-5 #Penalize large ground forces/smooths contact transitions and avoids huge impulse/Between 1e-5 and 1e-3
-    stance_ratio: list = (0.7, 0.7, 0.7, 0.7)  
+    stance_ratio: list = (0.75, 0.75, 0.75, 0.75)  
     phase_offset: list = (0.0, 0.0, 0.0, 0.0) #Relative timing between legs
     nominal_period: float = 0.6 #pattern repeats every 0.5 seconds.
 
@@ -96,7 +96,7 @@ class Go2_Pronk(NLP_MuJoCo):
          # vertical take-off impulse (sharp upward velocity)
         takeoff_time = 0.75 * cfg.nominal_period   # end of stance for jump gait
         burst_sigma = 0.03
-        vz_ref = 4.5 * np.exp(-0.5 * ((t_grid - takeoff_time) / burst_sigma) ** 2)
+        vz_ref = 4.6* np.exp(-0.5 * ((t_grid - takeoff_time) / burst_sigma) ** 2)
         self.add_state_cost(
             "vz_takeoff",
             self.quadratic_cost,
@@ -123,8 +123,8 @@ class Go2_Pronk(NLP_MuJoCo):
 
             self.quadratic_cost,
             idx_joint_vel,
-            weights=1e-2, 
-            weights_terminal=1e-2 #better when both 1e-2
+            weights= 0.065, 
+            weights_terminal= 0.065# 0.04 bad: land on too Front legs, 0.03: good balance in general, 0.04: good, 0.02: too much movement #0.065 best so far
 
         )
 
