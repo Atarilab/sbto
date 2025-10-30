@@ -6,6 +6,7 @@ import copy
 from multiprocessing import cpu_count
 from sbto.mj.nlp_base import NLPBase, Array, CostFn, IntArray
 from sbto.utils.config import ConfigBase, dataclass
+from sbto.utils.randomize_state import randomize_joint_pos, randomize_obj_pos, normalize_quat
 
 @dataclass
 class ConfigNLP_Mj(ConfigBase):
@@ -51,9 +52,6 @@ class NLP_MuJoCo(NLPBase):
         self.q_min = np.array(self.mj_model.jnt_range)[1:, 0]
         self.q_max = np.array(self.mj_model.jnt_range)[1:, 1]
 
-        self.a = 0.5 * (self.q_min + self.q_max)[None, None, ...]
-        self.b = 0.5 * (self.q_max - self.q_min)[None, None, ...]
-
         # preallocate results
         self.mj_models = None
         self.mj_datas = None
@@ -61,6 +59,7 @@ class NLP_MuJoCo(NLPBase):
         self.state_rollout : Array = None
         self.sensordata_rollout : Array = None
         self.N_allocated = -1
+        self.T_allocated = -1
         self.Nobs = 0
 
         # rollout variables
@@ -80,8 +79,9 @@ class NLP_MuJoCo(NLPBase):
         self.mj_data.qvel = keyframe.qvel
         mujoco.mj_forward(self.mj_model, self.mj_data)
 
-    def _init_batches(self, N: int) -> None:
+    def _init_batches(self, N: int, T:int) -> None:
         self.N_allocated = N
+        self.T_allocated = T
         self.Nobs = self.mj_model.nsensordata
         self.mj_models = [self.mj_model] * self.N_allocated
         self.mj_datas = [copy.copy(self.mj_data) for _ in range(self.Nthread)]
@@ -89,9 +89,9 @@ class NLP_MuJoCo(NLPBase):
         # [N, Nx+1], include time as the first state
         self.initial_states = np.tile(np.concatenate((t0, self.x_0)), (self.N_allocated, 1))
         # [N, T, Nx+1]
-        self.state_rollout = np.empty((self.N_allocated, self.T, self.Nx+1))
+        self.state_rollout = np.empty((self.N_allocated, T, self.Nx+1))
         # [N, T, Nobs]
-        self.sensordata_rollout = np.empty((self.N_allocated, self.T, self.Nobs))
+        self.sensordata_rollout = np.empty((self.N_allocated, T, self.Nobs))
 
     @staticmethod
     def get_state_full(model, data):
@@ -204,19 +204,18 @@ class NLP_MuJoCo(NLPBase):
         Rollout the dynamics with the given control trajecotries [-1, T, Nu].
         Returns state [-1, T, Nu], control [-1, T, Nu] and observations [-1, T, Nobs] trajectories.
         """
-        if self.N_allocated != pd_target_traj.shape[0]:
-            self._init_batches(pd_target_traj.shape[0])
-        else:
-            self._reset_data()
+        N, T, Nu = pd_target_traj.shape
+        if self.N_allocated != N or self.T_allocated != T:
+            self._init_batches(N, T)
 
         rollout.rollout(self.mj_models,
                         self.mj_datas,
                         self.initial_states,
                         control=pd_target_traj,
-                        nstep=self.T,
+                        nstep=T,
                         state=self.state_rollout,
                         sensordata=self.sensordata_rollout, 
-                        skip_checks=False,
+                        skip_checks=True,
                         persistent_pool=self._persistent_pool,
                         chunk_size=self._chunk_size
                         )
@@ -247,3 +246,91 @@ class NLP_MuJoCo(NLPBase):
             print("Warning: self.contact_obs_id is not set.")
             return []
         return obs_traj[:, self.contact_obs_id]
+    
+    def are_initial_states_valid(self, states: Array, obs: Array) -> Array:
+        """
+        Checks if candidate initial states are valid
+
+        Args:
+            state (Array): [N, Nx]
+            obs (Array): [N, Nobs]
+
+        Returns:
+            valid (Array): [N], boolean array 
+        """
+        N = states.shape[0]
+        return np.full(N, True)
+    
+    def set_random_initial_state(
+        self,
+        keyframe: str,
+        scale_q : float | Array = 0.1,
+        scale_v : float | Array = 0.1,
+        is_floating_base: bool = False,
+        obj_qpos_id : tuple = (),
+        N_rollout_steps: int = 150,
+        obj_x_range: Tuple[float, float] = (0.0, 0.0),
+        obj_y_range: Tuple[float, float] = (0.0, 0.0),
+        obj_z_range: Tuple[float, float] = (0.0, 0.0),
+        obj_w_range: Tuple[float, float] = (0.0, 0.0),
+        ) -> None:
+
+        self.set_initial_state_from_keyframe(keyframe)
+
+        N = 128
+        x_0 = np.copy(self.x_0)
+
+        def _randomize_and_rollout(N_samples, N_steps):
+
+            # Randomize state
+            x_0_rand = randomize_joint_pos(self.mj_model, N_samples, x_0, scale_q, scale_v)
+            if is_floating_base:
+                x_0_rand = normalize_quat(x_0_rand, slice=slice(3, 7))
+            if obj_qpos_id:
+                x_0_rand[:, obj_qpos_id] = randomize_obj_pos(
+                    N_samples,
+                    x_0[obj_qpos_id],
+                    obj_x_range,
+                    obj_y_range,
+                    obj_z_range,
+                    obj_w_range,
+                    )
+
+            ### Rollout to check feasibility
+            
+            # Set random initial states
+            if self.N_allocated != N_samples:
+                self._init_batches(N_samples, N_steps)
+            self.initial_states[:, 1:] = x_0_rand
+
+            # Set fixed pd targets for T step rollout
+            joint_ids = self.mj_model.actuator_trnid[:, 0]  # (nact,)
+            actuator_qposadr = self.mj_model.jnt_qposadr[joint_ids]  # (nact,)
+            pd_target = x_0_rand[:, actuator_qposadr]
+            pd_target_traj = np.tile(pd_target[:, None, :], (1, N_steps, 1))
+
+            # Rollout to ensure feasibility & quasi-stability
+            states, _, obs_traj = self._rollout_dynamics(pd_target_traj)
+
+            # Returns last states of the rollouts as candidate intial states
+            return states[:, -1, 1:], obs_traj[:, -1, :]
+
+        MAX_IT = 25
+        it = 0
+
+        while it < MAX_IT:
+            states, obs_traj = _randomize_and_rollout(N, N_rollout_steps)
+            is_valid = self.are_initial_states_valid(states, obs_traj)
+
+            if np.any(is_valid):
+                # Take first valid state
+                id = np.argmax(is_valid)
+                self.set_initial_state(states[id])
+                break
+
+            it += 1
+
+
+        if it == MAX_IT:
+            print(f"Failed to set a random initial state after {MAX_IT} iterations.")
+            print(f"Setting intial state to keyframe {keyframe}")

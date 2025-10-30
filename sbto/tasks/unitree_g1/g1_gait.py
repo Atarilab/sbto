@@ -14,6 +14,11 @@ class ConfigG1Gait(ConfigNLP_Mj):
     # --- Joint reference ---
     keyframe_name: str = "knees_bent"
 
+    # --- Randomize initial state ---
+    scale_q: float = 0.06
+    scale_v: float = 0.3
+    upper_body_scale: float = 5.
+
     # --- Desired motion parameters ---
     v_des: tuple = (0.5, 0.0, 0.0)  # Desired torso linear velocity [vx, vy, vz]
 
@@ -73,13 +78,15 @@ class G1_Gait(NLP_MuJoCo):
         # --- Initial state setup ---
         self.set_initial_state_from_keyframe(cfg.keyframe_name)
 
+        # Initial state randomization
+        self.keyframe_name = cfg.keyframe_name
+        self.scale_q = cfg.scale_q
+        self.scale_v = cfg.scale_v
+        self.upper_body_scale = cfg.upper_body_scale
+
         self.q_min = np.array(G1._23DoF.RESTRICTED_JOINT_RANGE)[:, 0]
         self.q_max = np.array(G1._23DoF.RESTRICTED_JOINT_RANGE)[:, 1]
-
         self.q_nom = self.x_0[G1._23DoF.IDX_JOINT_POS]
-        self.a_min = self.q_nom - self.q_min
-        self.a_max = self.q_max - self.q_nom
-
         self.v_des = np.array(cfg.v_des)
 
         # --- Add costs ---
@@ -189,3 +196,44 @@ class G1_Gait(NLP_MuJoCo):
 
         # --- Action scaling ---
         self.action_scale = cfg.action_scale
+
+
+    def are_initial_states_valid(self, states, obs):
+        Z_MIN = 0.6
+        QUAT_DIST_MAX = 0.4
+        TORSO_XY_MAX_DIST = 0.07
+
+        is_standing = states[:, 2] > Z_MIN
+
+        torso_xyz = self.get_sensor_data(obs, G1.Sensors.TORSO_POS)
+        is_centered = np.abs(torso_xyz[:, 0]) < TORSO_XY_MAX_DIST
+        is_centered &= np.abs(torso_xyz[:, 1]) < TORSO_XY_MAX_DIST
+
+        quat_ref = np.array([1., 0., 0., 0.]).reshape(1, 4)
+        quat = states[:, 3:7].reshape(-1, 1, 4)
+        w = np.full_like(quat_ref, 1.)
+        quat_dist = quaternion_dist_nb(quat, quat_ref, w)
+        is_straight = quat_dist < QUAT_DIST_MAX
+
+        valid = is_straight & is_centered & is_standing
+        return valid
+    
+    def randomize_initial_state(self):
+        scale_q = np.full((self.Nq,), self.scale_q)
+        scale_v = np.full((self.Nv,), self.scale_v)
+
+        scale_q[:7] /= 10.
+        scale_v[:6] /= 5.
+        scale_q[-7:] = 0.
+        scale_v[-6:] = 0.
+
+        scale_q[G1._25DoF_Obj.IDX_WAIST+7:] *= self.upper_body_scale
+
+        return super().set_random_initial_state(
+            self.keyframe_name,
+            scale_q,
+            scale_v,
+            is_floating_base=True,
+            N_rollout_steps=100,
+            )
+    

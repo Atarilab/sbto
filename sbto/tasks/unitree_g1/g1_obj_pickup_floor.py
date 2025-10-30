@@ -13,6 +13,14 @@ class ConfigG1ObjPickupFloor(ConfigNLP_Mj):
     # Keyframe used to initialize the robot
     keyframe_name: str = "knees_bent_wrist_yaw_90deg"
 
+    # --- Randomize initial state ---
+    scale_q: float = 0.05
+    scale_v: float = 0.1
+    upper_body_scale: float = 5.
+    obj_x_range: tuple = (-0.02, 0.03)
+    obj_y_range: tuple = (-0.015, 0.015)
+    obj_w_range: tuple = (-0.3, 0.3)
+
     # --- Timing ---
     squat_time: float = 1.     # seconds to reach squat pose
     pickup_time: float = 0.2   # seconds to reach the box after squatting
@@ -67,6 +75,15 @@ class G1_ObjPickupFloor(NLP_MuJoCo):
         self.q_min = np.array(G1._25DoF_ObjFloor.RESTRICTED_JOINT_RANGE)[:, 0]
         self.q_max = np.array(G1._25DoF_ObjFloor.RESTRICTED_JOINT_RANGE)[:, 1]
         self.q_nom = self.x_0[G1._25DoF_Obj.IDX_JOINT_POS]
+
+        # Initial state randomization
+        self.keyframe_name = cfg.keyframe_name
+        self.scale_q = cfg.scale_q
+        self.scale_v = cfg.scale_v
+        self.upper_body_scale = cfg.upper_body_scale
+        self.obj_x_range = cfg.obj_x_range
+        self.obj_y_range = cfg.obj_y_range
+        self.obj_w_range = cfg.obj_w_range
 
         # Squat pose reference
         stand_pose = self.mj_model.keyframe("knees_bent_wrist_yaw_90deg").qpos
@@ -260,3 +277,50 @@ class G1_ObjPickupFloor(NLP_MuJoCo):
             idx=list(range(self.Nu)),
             weights=w_u_traj,
         )
+
+    def are_initial_states_valid(self, states, obs):
+        Z_MIN = 0.6
+        QUAT_DIST_MAX = 0.4
+        TORSO_XY_MAX_DIST = 0.07
+
+        is_standing = states[:, 2] > Z_MIN
+
+        torso_xyz = self.get_sensor_data(obs, G1.Sensors.TORSO_POS)
+        is_centered = np.abs(torso_xyz[:, 0]) < TORSO_XY_MAX_DIST
+        is_centered &= np.abs(torso_xyz[:, 1]) < TORSO_XY_MAX_DIST
+
+        quat_ref = np.array([1., 0., 0., 0.]).reshape(1, 4)
+        quat = states[:, 3:7].reshape(-1, 1, 4)
+        w = np.full_like(quat_ref, 1.)
+        quat_dist = quaternion_dist_nb(quat, quat_ref, w)
+        is_straight = quat_dist < QUAT_DIST_MAX
+
+        valid = is_straight & is_centered & is_standing
+        return valid
+    
+    def randomize_initial_state(self):
+        scale_q = np.full((self.Nq,), self.scale_q)
+        scale_v = np.full((self.Nv,), self.scale_v)
+
+        scale_q[:7] /= 10.
+        scale_v[:6] /= 10.
+        scale_q[-7:] = 0.
+        scale_v[-6:] = 0.
+
+        scale_q[G1._25DoF_ObjFloor.IDX_WAIST+7:] *= self.upper_body_scale
+        obj_qpos_id = G1._25DoF_ObjFloor.IDX_BOX_POS + G1._25DoF_ObjFloor.IDX_BOX_QUAT
+        scale_q[obj_qpos_id] = 0.
+        scale_v[-6:] = 0.
+
+        return super().set_random_initial_state(
+            self.keyframe_name,
+            scale_q,
+            scale_v,
+            is_floating_base=True,
+            obj_qpos_id=obj_qpos_id,
+            N_rollout_steps=150,
+            obj_x_range=self.obj_x_range,
+            obj_y_range=self.obj_y_range,
+            obj_w_range=self.obj_w_range,
+            )
+    

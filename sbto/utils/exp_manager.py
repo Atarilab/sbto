@@ -182,6 +182,17 @@ def sweep_param(
     
     return configs
 
+def save_all_samples_and_cost(
+    dir_path: str,
+    samples,
+    costs,
+    ) -> None:
+    np.savez(
+        os.path.join(dir_path, f"all_samples_costs.npz"),
+        samples=samples,
+        costs=costs,
+    )
+
 def run_experiments(
     nlp,
     cfg_nlp,
@@ -221,6 +232,8 @@ def run_experiments(
             print("Best cost:", cost)
             x_traj, u_traj, obs_traj, cost = n.get_rollout_data(best_qdes_knots)
 
+            save_all_samples_and_cost(rundir, all_samples, all_costs)
+            
             if not description is None:
                 mean_knots = s.f_rescale(solver_states[-1].mean)
                 # save plots and video
