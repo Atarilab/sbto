@@ -96,7 +96,7 @@ class Go2_Pronk(NLP_MuJoCo):
          # vertical take-off impulse (sharp upward velocity)
         takeoff_time = 0.75 * cfg.nominal_period   # end of stance for jump gait
         burst_sigma = 0.03
-        vz_ref = 4.6* np.exp(-0.5 * ((t_grid - takeoff_time) / burst_sigma) ** 2)
+        vz_ref = 5* np.exp(-0.5 * ((t_grid - takeoff_time) / burst_sigma) ** 2)
         self.add_state_cost(
             "vz_takeoff",
             self.quadratic_cost,

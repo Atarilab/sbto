@@ -6,10 +6,11 @@ from sbto.utils.exp_manager import run_experiments
 
 def main():
     cfg_nlp = ConfigGo2Pronk(
-        T=700,
+        T=200,
         interp_kind="quadratic",
         Nthread=-1,
-        Nknots=10, #best is 10 so far 
+        Nknots=25
+        , #best is 10 so far 
         scene="scene_position.xml",  
     )
     cfg_solver = CEMConfig(
@@ -19,7 +20,7 @@ def main():
         alpha_cov=0.1,
         seed=42,
         quasi_random=True,
-        N_it=100,
+        N_it=150,
         sigma0=0.2,
     )
 

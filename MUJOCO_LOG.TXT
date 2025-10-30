@@ -1,3 +1,12 @@
 Wed Oct 22 16:15:39 2025
 WARNING: Read error while reading 'sbto/models/unitree_g1/mjx_go2_position.xml'
 
+Thu Oct 30 09:50:59 2025
+WARNING: Nan, Inf or huge value in QACC at DOF 3. The simulation is unstable. Time = 1.9100.
+
+Thu Oct 30 09:51:18 2025
+WARNING: Nan, Inf or huge value in QACC at DOF 3. The simulation is unstable. Time = 1.9100.
+
+Thu Oct 30 10:14:14 2025
+WARNING: Nan, Inf or huge value in QACC at DOF 7. The simulation is unstable. Time = 1.2600.
+

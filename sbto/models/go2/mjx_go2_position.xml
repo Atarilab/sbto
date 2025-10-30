@@ -6,9 +6,9 @@
         <flag eulerdamp="disable" />
     </option> -->
 
-    <option iterations="2" ls_iterations="5">
-        <flag eulerdamp="disable" />
-    </option>
+    <option iterations="3" ls_iterations="5" timestep="0.01" integrator="implicitfast"/>
+
+
 
     <default>
         <default class="go2">
