@@ -6,7 +6,7 @@ from sbto.mj.nlp_mj import ConfigNLP_Mj, dataclass
 from sbto.utils.cost import quadratic_cost_nb, quaternion_dist_nb, hamming_dist_nb
 
 @dataclass
-class ConfigG1ObjPickup(ConfigNLP_Mj):
+class ConfigG1ObjPickupTable(ConfigNLP_Mj):
     # Scene
     scene_file: str = "scene_mjx_23dof_no_hands_obj_table.xml"
 
@@ -73,9 +73,9 @@ class ConfigG1ObjPickup(ConfigNLP_Mj):
     u_weight_upperbody_scale: float = 0.1
     u_torques: float = 1.0e-5
 
-class G1_ObjPickup(NLP_MuJoCo):
+class G1_ObjPickupTable(NLP_MuJoCo):
 
-    def __init__(self, cfg: ConfigG1ObjPickup):
+    def __init__(self, cfg: ConfigG1ObjPickupTable):
         xml_path = os.path.join(G1.XML_DIR_PATH, cfg.scene_file)
         super().__init__(xml_path, cfg.T, cfg.Nknots, cfg.interp_kind, cfg.Nthread)
 
