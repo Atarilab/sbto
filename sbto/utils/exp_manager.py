@@ -57,7 +57,6 @@ def save_results(
     u_traj,
     obs_traj,
     knots,
-    mean_knots,
     all_solver_states,
     all_costs,
     ) -> None:
@@ -77,11 +76,13 @@ def save_results(
         u_traj
     )
 
+    mean_knots = all_solver_states[-1].mean
+    cov_knots = all_solver_states[-1].cov
     plot_mean_cov(
         time,
         mean_knots,
         knots,
-        all_solver_states[-1].cov,
+        cov_knots,
         u_traj,
         Nu=nlp.Nu,
         save_dir=dir_path,
@@ -226,25 +227,27 @@ def run_experiments(
                 state_solver = s.init_state()
             else:
                 state_solver = init_state_solver
-            solver_states, best_qdes_knots, cost, all_costs, all_samples = s.solve(deepcopy(state_solver))
+            solver_states, best_knots, cost, all_costs, all_samples = s.solve(deepcopy(state_solver))
+            print("Best cost:", cost)
 
             # get final trajectories
-            print("Best cost:", cost)
-            x_traj, u_traj, obs_traj, cost = n.get_rollout_data(best_qdes_knots)
+            x_traj, qdes_traj, obs_traj = n.rollout(best_knots)
+            x_traj = np.squeeze(x_traj)
+            qdes_traj = np.squeeze(qdes_traj)
+            obs_traj = np.squeeze(obs_traj)
 
             save_all_samples_and_cost(rundir, all_samples, all_costs)
             
             if not description is None:
-                mean_knots = s.f_rescale(solver_states[-1].mean)
+
                 # save plots and video
                 save_results(
                     rundir,
                     n,
                     x_traj,
-                    u_traj,
+                    qdes_traj,
                     obs_traj,
-                    best_qdes_knots,
-                    mean_knots,
+                    best_knots,
                     solver_states,
                     all_costs,
                 )

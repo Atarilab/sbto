@@ -10,10 +10,12 @@ from sbto.utils.randomize_state import randomize_joint_pos, randomize_obj_pos, n
 
 @dataclass
 class ConfigNLP_Mj(ConfigBase):
-    T: int
-    Nknots: int
+    xml_path: str
+    T: int = 0
+    Nknots: int = -1
     interp_kind: str = "linear"
     Nthread: int = -1
+    scaling = "asymmetric"
 
     def __post_init__(self):
         self._filename = "config_nlp.yaml"
@@ -21,36 +23,40 @@ class ConfigNLP_Mj(ConfigBase):
 class NLP_MuJoCo(NLPBase):
     def __init__(
         self,
-        xml_path: str,
-        T: int,
-        Nknots: int = 0,
-        interp_kind = "linear",
-        Nthread: int = -1,
+        cfg: ConfigNLP_Mj,
         ):
-        self.mj_model = mujoco.MjModel.from_xml_path(xml_path)
+        self.mj_model = mujoco.MjModel.from_xml_path(cfg.xml_path)
         self.mj_data = mujoco.MjData(self.mj_model)
         
         super().__init__(
             self.mj_model.nq,
             self.mj_model.nv,
             self.mj_model.nu,
-            T,
-            Nknots,
-            interp_kind
+            cfg.T,
+            cfg.Nknots,
+            cfg.interp_kind
             )
         
-        if Nthread == -1:
+        if cfg.Nthread == -1:
             self.Nthread = cpu_count()
         else:
-            self.Nthread = Nthread if cpu_count() > Nthread > 0 else cpu_count()
+            self.Nthread = cfg.Nthread if cpu_count() > cfg.Nthread > 0 else cpu_count()
         print(f"Using {self.Nthread} threads for MuJoCo simulation.")
 
         self.dt = self.mj_model.opt.timestep
         self.duration = self.T * self.dt
 
+        # Get actuator joint, qpos, qvel indices
+        self.act_joint_ids = self.mj_model.actuator_trnid[:, 0]  # (nact,)
+        self.act_qposadr = self.mj_model.jnt_qposadr[self.act_joint_ids]  # (nact,)
+        self.act_dofadr = self.mj_model.jnt_dofadr[self.act_joint_ids]  # (nact,)
+        
         # Set actuator limits
-        self.q_min = np.array(self.mj_model.jnt_range)[1:, 0]
-        self.q_max = np.array(self.mj_model.jnt_range)[1:, 1]
+        self.q_min = np.array(self.mj_model.jnt_range)[self.act_joint_ids, 0]
+        self.q_max = np.array(self.mj_model.jnt_range)[self.act_joint_ids, 1]
+        self.q_nom = np.zeros_like(self.q_min)
+        self.q_range = self.q_max - self.q_min
+        self.set_scaling(cfg)
 
         # preallocate results
         self.mj_models = None

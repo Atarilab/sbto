@@ -57,9 +57,9 @@ class CEM(SamplingBasedSolver):
         """
         Update the solver state using the elite samples.
         """
-        samples_qdes, costs = self.evaluate(samples)
+        costs = self.evaluate(samples)
         elites, arg_min = self.get_elites(samples, costs)
-        best = samples_qdes[arg_min]
+        best = samples[arg_min]
         min_cost = costs[arg_min]
         self.update_distrib_param(state, elites)
         self.update_min_cost(state, min_cost)
@@ -99,7 +99,7 @@ class CEMBeta(CEM):
         self.kappa = cfg.kappa
 
     def _get_mode_in_unit_interval(self) -> Array:
-        return (self.q_nom - self.q_min) / self.q_range
+        return (self.nlp.q_nom - self.nlp.q_min) / self.nlp.q_range
 
     def get_a_b_from_mode_and_kappa(self, kappa=6.0):
         """
@@ -149,22 +149,17 @@ class CEMBeta(CEM):
             min_cost_all=np.inf,
         )
 
-    def compute_mean_cov_scaled(self, a, b):
+    def compute_mean_cov(self, a, b):
         """
         Compute mean and variance of beta(a, b).
-        Rescaled to the joint range.
         """
         mean = a / (a + b)
-        mean_q = self.f_rescale(mean).reshape(-1)
 
         var = (a * b) / ((a + b)**2 * (a + b + 1))
         var = var.reshape(-1, self.nlp.Nu)
-        # Var[a*X] = a**2 * X
-        var *= self.q_range**2
-        var = var.reshape(-1)
         diag_cov = np.diag(var)
 
-        return mean_q, diag_cov
+        return mean, diag_cov
     
     def update_distrib_param(self, state: CEMBetaState, elites: Array):
         a, b, Sigma = self.sampler.estimate_params(elites)
@@ -174,7 +169,7 @@ class CEMBeta(CEM):
         state.b = b**w1 * state.b**w2
         state.Sigma += self.alpha_cov * (Sigma - state.Sigma)
         # Update mean and cov for plotting
-        state.mean, state.cov = self.compute_mean_cov_scaled(a, b)
+        state.mean, state.cov = self.compute_mean_cov(a, b)
 
 
 @dataclass
@@ -188,9 +183,6 @@ class CEMKumaraswamyConfig(CEMConfig):
         super().__post_init__()
         # beta distribution
         self.sampler = "kumaraswamy"
-        # beta samples in [0,1]
-        # has to be linear scaling to [q_min, q_max]
-        self.scaling = "linear"
 
 class CEMKumaraswamy(CEMBeta):
     def get_a_b_from_mode_and_kappa(self, kappa=6):
@@ -229,16 +221,11 @@ class CEMKumaraswamy(CEMBeta):
         Rescaled to the joint range.
         """
         mean = self.sampler.moment_n(a, b, 1)
-        mean_q = self.f_rescale(mean).reshape(-1)
-
         var = self.sampler.moment_n(a, b, 2) - mean**2
         var = var.reshape(-1, self.nlp.Nu)
-        # Var[a*X] = a**2 * X
-        var *= self.q_range**2
-        var = var.reshape(-1)
         diag_cov = np.diag(var)
 
-        return mean_q, diag_cov
+        return mean, diag_cov
     
     def update_distrib_param(self, state: CEMBetaState, elites: Array):
         a, b, Sigma = self.sampler.estimate_params(elites)

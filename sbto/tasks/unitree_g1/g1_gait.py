@@ -9,7 +9,7 @@ from sbto.utils.cost import quadratic_cost_nb, quaternion_dist_nb, hamming_dist_
 @dataclass
 class ConfigG1Gait(ConfigNLP_Mj):
     # Scene
-    scene_file: str = "scene_mjx_23dof.xml"
+    xml_path: str = "./sbto/models/unitree_g1/scene_mjx_23dof.xml"
 
     # --- Joint reference ---
     keyframe_name: str = "knees_bent"
@@ -72,8 +72,7 @@ class ConfigG1Gait(ConfigNLP_Mj):
 class G1_Gait(NLP_MuJoCo):
 
     def __init__(self, cfg: ConfigG1Gait):
-        xml_path = os.path.join(G1.XML_DIR_PATH, cfg.scene_file)
-        super().__init__(xml_path, cfg.T, cfg.Nknots, cfg.interp_kind, cfg.Nthread)
+        super().__init__(cfg)
 
         # --- Initial state setup ---
         self.set_initial_state_from_keyframe(cfg.keyframe_name)
@@ -87,6 +86,7 @@ class G1_Gait(NLP_MuJoCo):
         self.q_min = np.array(G1._23DoF.RESTRICTED_JOINT_RANGE)[:, 0]
         self.q_max = np.array(G1._23DoF.RESTRICTED_JOINT_RANGE)[:, 1]
         self.q_nom = self.x_0[G1._23DoF.IDX_JOINT_POS]
+        self.set_scaling(cfg)
         self.v_des = np.array(cfg.v_des)
 
         # --- Add costs ---
