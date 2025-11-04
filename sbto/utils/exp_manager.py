@@ -75,7 +75,7 @@ def save_plots(
     save_trajectories(
         dir_path,
         time,
-        x_traj,
+        state_traj,
         u_traj
     )
 
