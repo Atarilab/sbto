@@ -10,6 +10,7 @@ from sbto.utils.config import ConfigBase
 
 EXP_DIR = "./datasets"
 TRAJ_FILENAME = "time_x_u_traj"
+ROLLOUT_FILENAME = "rollout_time_x_u_obs_traj"
 SOLVER_STATES_DIR = "./solver_states"
 ALL_SAMPLES_COSTS_FILENAME = "samples_costs"
 
@@ -34,12 +35,29 @@ def save_trajectories(
     x_traj,
     u_traj
     ) -> None:
-    
+
     np.savez(
         os.path.join(dir_path, f"{TRAJ_FILENAME}.npz"),
         time=time,
         x=x_traj,
         u=u_traj
+    )
+
+def save_rollout(
+    dir_path: str,
+    time,
+    x_traj,
+    u_traj,
+    obs_traj,
+    costs = []
+    ) -> None:
+    np.savez(
+        os.path.join(dir_path, f"{ROLLOUT_FILENAME}.npz"),
+        time=time,
+        x=x_traj,
+        u=u_traj,
+        o=obs_traj,
+        c=costs
     )
 
 def save_all_samples_and_cost(

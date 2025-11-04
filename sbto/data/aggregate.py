@@ -3,7 +3,6 @@ import numpy as np
 from typing import List
 
 from sbto.data.utils import ALL_SAMPLES_COSTS_FILENAME, save_rollout
-from sbto.utils.scaling import asymmetric_scaling
 
 def get_all_costs_and_samples_paths(data_dir: str) -> List[str]:
     all_costs_samples_paths = []
@@ -49,7 +48,6 @@ def get_top_samples(
 
 def aggregate_top_samples(
     nlp,
-    solver,
     data_dir: str,
     top_quantile: float = 0.01,
     ):
@@ -59,21 +57,14 @@ def aggregate_top_samples(
 
     for path in all_costs_samples_paths:
         file = np.load(path)
-        samples, costs = file["samples"], file["costs"]
-
-        all_costs.append(costs)
-        all_samples.append(samples)
+        all_costs.append(file["costs"])
+        all_samples.append(file["samples"])
 
     all_samples_arr = np.vstack(all_samples)
     all_costs_arr = np.vstack(all_costs)
-    print(all_costs_arr.shape)
-    print(all_samples_arr.shape)
-    top_samples, top_costs = get_top_samples(all_costs_arr, all_samples_arr, top_quantile)
-    print(top_costs.min(), top_costs.max())
-    
-    state_traj, u_traj, obs_traj = nlp.rollout(solver.f_rescale(top_samples))
-    c = nlp.cost(state_traj, u_traj, obs_traj)
-    print(c.min(), c.max())
+
+    top_samples, top_costs = get_top_samples(all_costs_arr, all_samples_arr, top_quantile)    
+    state_traj, u_traj, obs_traj = nlp.rollout_get_traj_with_x0(top_samples)
 
     # save rollout data
     save_rollout(
