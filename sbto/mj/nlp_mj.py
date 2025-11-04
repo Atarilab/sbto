@@ -340,3 +340,18 @@ class NLP_MuJoCo(NLPBase):
         if it == MAX_IT:
             print(f"Failed to set a random initial state after {MAX_IT} iterations.")
             print(f"Setting intial state to keyframe {keyframe}")
+
+    def rollout_get_traj_with_x0(self, u_knots : Array) -> Tuple[Array, Array, Array]:
+        """
+        Rollout the dynamics with the given control knots [-1, Nknots, Nu].
+        Interpolate and rescale the knots to the desired range to
+        get the full trajectory.
+        Returns:
+            - state (including x0) [-1, T+1, Nu]
+            - control [-1, T, Nu]
+            - observations [-1, T, Nobs] trajectories
+        """
+        u_traj = self.interpolate(self.f_rescale(u_knots))
+        x_traj, _, obs_traj = self._rollout_dynamics(u_traj)
+        x_traj_full = np.concatenate((self.initial_states[:, None, :], x_traj), axis=1)
+        return x_traj_full, u_traj, obs_traj

@@ -50,7 +50,17 @@ def load_trajectories(
     data = np.load(file_path)
     return data["time"], data["x"], data["u"]
 
-def save_results(
+def save_all_states(
+    dir_path: str,
+    states
+    ) -> None:
+    # Save all solver states
+    solver_state_dir = os.path.join(dir_path, SOLVER_STATES_DIR)
+    for i, state in enumerate(states):
+        state.set_filename(f"solver_state_{i}.npz")
+        state.save(solver_state_dir)
+
+def save_plots(
     dir_path: str,
     nlp,
     x_traj,
@@ -60,13 +70,6 @@ def save_results(
     all_solver_states,
     all_costs,
     ) -> None:
-
-    # Save all solver states
-    solver_state_dir = os.path.join(dir_path, SOLVER_STATES_DIR)
-    for i, state in enumerate(all_solver_states):
-        state.set_filename(f"solver_state_{i}.npz")
-        state.save(solver_state_dir)
-
     time, state_traj = x_traj[:, 0], x_traj[:, 1:]
 
     save_trajectories(
@@ -212,14 +215,6 @@ def run_experiments(
     for cfg_s in cfg_solver:
         for cfg_n in cfg_nlp:
 
-            if not description is None: 
-                # create run dir
-                exp_name = nlp.__name__
-                rundir = create_dirs(exp_name, description)
-                # save configs
-                for c in [cfg_n, cfg_s]:
-                    c.save(rundir)
-
             # run optimization
             n = nlp(cfg_n)
             s = solver(nlp=n, cfg=cfg_s)
@@ -231,17 +226,22 @@ def run_experiments(
             print("Best cost:", cost)
 
             # get final trajectories
-            x_traj, qdes_traj, obs_traj = n.rollout(best_knots)
+            x_traj, qdes_traj, obs_traj = n.rollout_get_traj_with_x0(best_knots)
             x_traj = np.squeeze(x_traj)
             qdes_traj = np.squeeze(qdes_traj)
             obs_traj = np.squeeze(obs_traj)
 
-            save_all_samples_and_cost(rundir, all_samples, all_costs)
-            
             if not description is None:
+                # create run dir
+                exp_name = nlp.__name__
+                rundir = create_dirs(exp_name, description)
+                # save configs
+                for c in [cfg_n, cfg_s]:
+                    c.save(rundir)
 
-                # save plots and video
-                save_results(
+                save_all_samples_and_cost(rundir, all_samples, all_costs)
+                save_all_states(rundir, solver_states)
+                save_plots(
                     rundir,
                     n,
                     x_traj,
