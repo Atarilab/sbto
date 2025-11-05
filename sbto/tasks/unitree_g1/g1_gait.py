@@ -3,21 +3,28 @@ import numpy as np
 from sbto.mj.nlp_mj import NLP_MuJoCo
 import sbto.tasks.unitree_g1.g1_constants as G1
 from sbto.utils.gait import GaitConfig, generate_contact_plan
-from sbto.mj.nlp_mj import ConfigNLP_Mj, dataclass
+from sbto.mj.nlp_mj import ConfigTask, dataclass, ConfigScene
 from sbto.utils.cost import quadratic_cost_nb, quaternion_dist_nb, hamming_dist_nb
 
+
 @dataclass
-class ConfigG1Gait(ConfigNLP_Mj):
-    # Scene
-    xml_path: str = "./sbto/models/unitree_g1/scene_mjx_23dof.xml"
-
-    # --- Joint reference ---
-    keyframe_name: str = "knees_bent"
-
+class SceneG1ObjPickupFloor(ConfigScene):
+    xml_path: str = "sbto/models/unitree_g1/scene_mjx_25dof_no_hands.xml"
+    keyframe: str = "knees_bent_wrist_yaw_90deg"
+    # --- Additional xml files ---
+    sensor_file: str = "sbto/models/unitree_g1/sensors/default.xml"
+    contact_pair_file: str = "sbto/models/unitree_g1/contact_pairs/minimal.xml"
+    keyframes_file: str = "sbto/models/unitree_g1/keyframes/g1_25dof.xml"
     # --- Randomize initial state ---
     scale_q: float = 0.06
     scale_v: float = 0.3
     upper_body_scale: float = 5.
+
+
+@dataclass
+class ConfigG1Gait(ConfigTask):
+    # Scene
+    xml_path: str = "./sbto/models/unitree_g1/scene_mjx_25dof_no_hands.xml"
 
     # --- Desired motion parameters ---
     v_des: tuple = (0.5, 0.0, 0.0)  # Desired torso linear velocity [vx, vy, vz]
@@ -74,18 +81,20 @@ class G1_Gait(NLP_MuJoCo):
     def __init__(self, cfg: ConfigG1Gait):
         super().__init__(cfg)
 
+        self.cfg_scene = SceneG1ObjPickupFloor()
+        self.edit.add_keyframes_from_file(self.cfg_scene.keyframes_file)
+        self.edit.add_cnt_pairs_from_file(self.cfg_scene.contact_pair_file)
+        self.edit.add_sensors_from_file(self.cfg_scene.sensor_file)
+        self.add_scene_body(self.cfg_scene)
+        self._on_model_edit(self.edit.get_model())
+
         # --- Initial state setup ---
-        self.set_initial_state_from_keyframe(cfg.keyframe_name)
+        self.set_initial_state_from_keyframe(self.cfg_scene.keyframe)
 
-        # Initial state randomization
-        self.keyframe_name = cfg.keyframe_name
-        self.scale_q = cfg.scale_q
-        self.scale_v = cfg.scale_v
-        self.upper_body_scale = cfg.upper_body_scale
 
-        self.q_min = np.array(G1._23DoF.RESTRICTED_JOINT_RANGE)[:, 0]
-        self.q_max = np.array(G1._23DoF.RESTRICTED_JOINT_RANGE)[:, 1]
-        self.q_nom = self.x_0[G1._23DoF.IDX_JOINT_POS]
+        self.q_min = np.array(G1._25DoF.RESTRICTED_JOINT_RANGE)[:, 0]
+        self.q_max = np.array(G1._25DoF.RESTRICTED_JOINT_RANGE)[:, 1]
+        self.q_nom = self.x_0[self.act_qposadr]
         self.set_scaling(cfg)
         self.v_des = np.array(cfg.v_des)
 
@@ -93,7 +102,7 @@ class G1_Gait(NLP_MuJoCo):
         self.add_state_cost(
             "joint_pos",
             quadratic_cost_nb,
-            G1._23DoF.IDX_JOINT_POS,
+            G1._25DoF.IDX_JOINT_POS,
             weights=cfg.joint_pos_weight,
             use_intial_as_ref=True,
             weights_terminal=cfg.joint_pos_weight_terminal,
@@ -101,13 +110,13 @@ class G1_Gait(NLP_MuJoCo):
         self.add_state_cost(
             "joint_vel_upper",
             quadratic_cost_nb,
-            G1._23DoF.IDX_JOINT_VEL[G1._23DoF.IDX_WAIST-7:],
+            G1._25DoF.IDX_JOINT_VEL[G1._25DoF.IDX_WAIST-7:],
             weights=cfg.joint_vel_weight,
         )
         self.add_state_cost(
             "joint_vel_lower",
             quadratic_cost_nb,
-            G1._23DoF.IDX_JOINT_VEL[:G1._23DoF.IDX_WAIST-7],
+            G1._25DoF.IDX_JOINT_VEL[:G1._25DoF.IDX_WAIST-7],
             weights=cfg.joint_vel_weight * cfg.joint_vel_lower_mult,
         )
         self.add_sensor_cost(
@@ -178,7 +187,7 @@ class G1_Gait(NLP_MuJoCo):
 
         # --- Control cost ---
         w_u_traj = np.full(self.Nu, cfg.u_weight_default)
-        w_u_traj[list(G1._23DoF.IDX_HIP_KNEE)] *= cfg.u_weight_hip_knee_scale
+        w_u_traj[list(G1._25DoF.IDX_HIP_KNEE)] *= cfg.u_weight_hip_knee_scale
         w_u_traj[13:] *= cfg.u_weight_upperbody_scale
         self.add_control_cost(
             "u_traj",
@@ -186,7 +195,7 @@ class G1_Gait(NLP_MuJoCo):
             idx=list(range(self.Nu)),
             weights=w_u_traj,
         )
-        w_u_torque = np.full(self.Nu, cfg.u_torques)
+        w_u_torque = np.full(self.Nu-2, cfg.u_torques)
         w_u_torque[13:] *= cfg.u_weight_upperbody_scale
         self.add_sensor_cost(
             G1.Sensors.TORQUES,

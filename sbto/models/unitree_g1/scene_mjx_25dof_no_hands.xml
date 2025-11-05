@@ -1,7 +1,6 @@
 <mujoco model="g1 mjx flat terrain scene">
 
-  <include file="g1_mjx_23dof_no_hands.xml"/>
-  <include file="utils/class/obj.xml"/>
+  <include file="g1_mjx_25dof_no_hands.xml"/>
 
   <statistic center="0 0 0.7" extent="1.2" meansize="0.02"/>
 
@@ -22,19 +21,9 @@
   </asset>
 
   <worldbody>
-    <geom name="floor" size="0 0 0.01" type="plane" material="groundplane"/>
-    <body name="obj" pos="0.35 0. 0.715">
-      <freejoint name="floating_obj_joint"/>
-      <geom name="obj" size="0.1 0.1 0.115" class="dynamic" mass="0.6"/>
+    <body name="static">
+      <geom name="floor" size="0 0 0.01" type="plane" material="groundplane"/>
     </body>
-    <body name="table">
-      <geom name="table" size="0.25 0.4 0.005" pos="0.5 0. 0.595" class="static"/>
-    </body>
-    
   </worldbody>
 
-  <include file="utils/obj_table/keyframes.xml"/>
-  <include file="utils/obj_table/sensors.xml"/>
-  <include file="utils/obj_table/collision.xml"/>
-  
 </mujoco>

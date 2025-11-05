@@ -24,8 +24,8 @@ class Sensors:
         "left_hand_cnt",
         "right_hand_cnt",
     ]
-    OBJ_TABLE_CONTACT = ["obj_table_cnt"]
-    OBJ_FLOOR_CONTACT = ["obj_floor_cnt"]
+    OBJ_TABLE_CONTACT = ["obj_static_cnt"]
+    OBJ_FLOOR_CONTACT = ["obj_static_cnt"]
     OBJ_THIGH_COLLISION = [
         "obj_right_thigh_cnt",
         "obj_left_thigh_cnt",
@@ -199,7 +199,105 @@ class _25DoF_ObjFloor(_25DoF_Obj):
         (1.57, 1.57), # 0 range for the yaw wrists
     )
 
-class _23DoF:
+
+class _27DoF_Obj:
+    RESTRICTED_JOINT_RANGE = (
+        # Left leg.
+        (-1.57, 1.57),
+        (-0.5, 0.5),
+        (-0.5, 0.5),
+        (0, 1.57),
+        (-0.5, 0.7),
+        (-0.2, 0.2),
+        # Right leg.
+        (-1.57, 1.57),
+        (-0.5, 0.5),
+        (-0.5, 0.5),
+        (0, 1.57),
+        (-0.5, 0.7),
+        (-0.2, 0.2),
+        # Waist.
+        (-0.25, 0.25),
+        # Left shoulder.
+        (-1.57, 1.57),
+        (-0.2, 1.57),
+        (-1, 1),
+        (-1., 1.57),
+        (-1., 1.),
+        (0., 0.),
+        (-1.57, -1.57), # 0 range for the yaw wrists
+        # Right shoulder.
+        (-1.57, 1.57),
+        (-1.57, 0.2),
+        (-1, 1),
+        (-1., 1.57),
+        (-1., 1.),
+        (0., 0.),
+        (1.57, 1.57), # 0 range for the yaw wrists
+    )
+
+    # --- System DOFs ---
+    NDOF_G1 = 27  # robot: 23 + 2 wrists
+    NQ_G1 = 7 + NDOF_G1        # 7 for base pose (3 pos + 4 quat)
+    NV_G1 = 6 + NDOF_G1        # 6 for base velocity (3 lin + 3 ang)
+    iNV_G1 = NQ_G1 + 7         # NQ + 7 for obj
+
+    # --- Robot joint indices ---
+    IDX_JOINT_POS = list(range(7, 7 + NDOF_G1))              # qpos indices for joints
+    IDX_JOINT_VEL = list(range(iNV_G1, iNV_G1 + NDOF_G1))    # qvel indices for joints
+
+    # Example subgroups (these depend on your robot’s joint ordering)
+    IDX_HIP_KNEE = [0, 3, 6, 9]       # example leg joint indices
+    IDX_SHOULDER_PITCH = [13, 20]     # example shoulder pitch joints
+    IDX_WAIST = 12                    # example waist joint index
+
+    # --- Obj state indices ---
+    # Obj qpos starts right after the robot qpos (7 + NDOF_G1)
+    IDX_BOX_POS = list(range(NQ_G1, NQ_G1 + 3))
+    IDX_BOX_QUAT = list(range(NQ_G1 + 3, NQ_G1 + 7))
+
+    # Obj qvel starts right after robot qvel (6 + NDOF_G1)
+    IDX_BOX_LINVEL = list(range(iNV_G1 + NV_G1, iNV_G1 + NV_G1 + 3))
+    IDX_BOX_ANGVEL = list(range(iNV_G1 + NV_G1 + 3, iNV_G1 + NV_G1 + 6))
+
+class _27DoF_ObjFloor(_25DoF_Obj):
+    RESTRICTED_JOINT_RANGE = (
+        # Left leg.
+        (-2.57, 0.1),
+        (-0.5, 0.5),
+        (-0.5, 0.5),
+        (0, 2.57),
+        (-0.5, 0.7),
+        (-0.2, 0.2),
+        # Right leg.
+        (-2.57, 0.1),
+        (-0.5, 0.5),
+        (-0.5, 0.5),
+        (0, 2.57),
+        (-0.5, 0.7),
+        (-0.2, 0.2),
+        # Waist.
+        (-0.5, 0.5),
+        # Left shoulder.
+        (-1.57, 1.57),
+        (-0.2, 1.57),
+        (-1, 1),
+        (-1., 1.57),
+        (-1., 1.),
+        (0., 0.),
+        (-1.57, -1.57), # 0 range for the yaw wrists
+        # Right shoulder.
+        (-1.57, 1.57),
+        (-1.57, 0.2),
+        (-1, 1),
+        (-1., 1.57),
+        (-1., 1.),
+        (0., 0.),
+        (1.57, 1.57), # 0 range for the yaw wrists
+    )
+
+
+class _25DoF:
     RESTRICTED_JOINT_RANGE = (
         # Left leg.
         (-1.57, 1.57),
@@ -223,16 +321,18 @@ class _23DoF:
         (-1, 1),
         (-1., 1.57),
         (-1., 1.),
+        (-1.57, -1.57), # 0 range for the yaw wrists
         # Right shoulder.
         (-1.57, 1.57),
         (-1.57, 0.2),
         (-1, 1),
         (-1., 1.57),
         (-1., 1.),
+        (1.57, 1.57), # 0 range for the yaw wrists
     )
 
     # --- System DOFs ---
-    NDOF_G1 = 23  # robot: 23 + 2 wrists
+    NDOF_G1 = 25  # robot: 23 + 2 wrists
     NQ_G1 = 7 + NDOF_G1        # 7 for base pose (3 pos + 4 quat)
     NV_G1 = 6 + NDOF_G1        # 6 for base velocity (3 lin + 3 ang)
     iNV_G1 = NQ_G1 + 7        # NQ + 7 for obj

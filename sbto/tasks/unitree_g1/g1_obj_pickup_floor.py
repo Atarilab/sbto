@@ -2,17 +2,17 @@ import os
 import numpy as np
 from sbto.mj.nlp_mj import NLP_MuJoCo
 import sbto.tasks.unitree_g1.g1_constants as G1
-from sbto.mj.nlp_mj import ConfigNLP_Mj, dataclass
+from sbto.mj.nlp_mj import ConfigTask, ConfigScene, dataclass
 from sbto.utils.cost import quadratic_cost_nb, quaternion_dist_nb, hamming_dist_nb
 
 @dataclass
-class ConfigG1ObjPickupFloor(ConfigNLP_Mj):
-    # Scene file
-    xml_path: str = "sbto/models/unitree_g1/scene_mjx_23dof_no_hands_obj_floor.xml"
-
-    # Keyframe used to initialize the robot
-    keyframe_name: str = "knees_bent_wrist_yaw_90deg"
-
+class SceneG1ObjPickupFloor(ConfigScene):
+    xml_path: str = "sbto/models/unitree_g1/scene_mjx_25dof_no_hands.xml"
+    keyframe: str = "knees_bent_wrist_yaw_90deg"
+    # --- Additional xml files ---
+    sensor_file: str = "sbto/models/unitree_g1/sensors/with_obj.xml"
+    contact_pair_file: str = "sbto/models/unitree_g1/contact_pairs/with_obj.xml"
+    keyframes_file: str = "sbto/models/unitree_g1/keyframes/g1_25dof.xml"
     # --- Randomize initial state ---
     scale_q: float = 0.05
     scale_v: float = 0.1
@@ -20,6 +20,29 @@ class ConfigG1ObjPickupFloor(ConfigNLP_Mj):
     obj_x_range: tuple = (-0.02, 0.03)
     obj_y_range: tuple = (-0.015, 0.015)
     obj_w_range: tuple = (-0.3, 0.3)
+    body = {
+        "obj": {
+            "type":         "box",
+            "pos":          (0.35, 0., 0.115),
+            "size":         (0.1, 0.1, 0.115),
+            "mass":         0.6,
+            "euler":        (0., 0., 0.),
+            "rgba":         (0.3, 0.3, 0.3, 1.),
+            "group":        1,
+            "freejoint":    True,
+            "priority":     0,
+            "condim":       3,
+            "contype":      0,
+            "conaffinity":  1,
+            "solref":       (0.008, 1.),
+            "friction":     (0.6, 0.003, 0.001),
+        },
+    }
+
+@dataclass
+class TaskG1ObjPickupFloor(ConfigTask):
+    # Scene file
+    xml_path: str = "sbto/models/unitree_g1/scene_mjx_25dof_no_hands.xml"
 
     # --- Timing ---
     squat_time: float = 1.     # seconds to reach squat pose
@@ -32,8 +55,8 @@ class ConfigG1ObjPickupFloor(ConfigNLP_Mj):
 
     obj_pos_weight: float = 0.
     obj_pos_weight_terminal: float = (10.0, 10.0, 10.0)
-    obj_quat_weight: float = 1.
-    obj_quat_weight_terminal: float = 1.
+    obj_quat_weight: float = 0.6
+    obj_quat_weight_terminal: float = 0.6
 
     # --- Weights ---
     joint_pos_weight: float = 0.2
@@ -65,28 +88,27 @@ class ConfigG1ObjPickupFloor(ConfigNLP_Mj):
 
 class G1_ObjPickupFloor(NLP_MuJoCo):
 
-    def __init__(self, cfg: ConfigG1ObjPickupFloor):
+    def __init__(
+        self,
+        cfg: TaskG1ObjPickupFloor,
+        ):
         super().__init__(cfg)
+        self.cfg_scene = SceneG1ObjPickupFloor()
+        self.edit.add_keyframes_from_file(self.cfg_scene.keyframes_file)
+        self.edit.add_cnt_pairs_from_file(self.cfg_scene.contact_pair_file)
+        self.edit.add_sensors_from_file(self.cfg_scene.sensor_file)
+        self.add_scene_body(self.cfg_scene)
 
         # --- Initial state setup ---
-        self.set_initial_state_from_keyframe(cfg.keyframe_name)
+        self.set_initial_state_from_keyframe(self.cfg_scene.keyframe, actuators_only=True)
 
         self.q_min = np.array(G1._25DoF_ObjFloor.RESTRICTED_JOINT_RANGE)[:, 0]
         self.q_max = np.array(G1._25DoF_ObjFloor.RESTRICTED_JOINT_RANGE)[:, 1]
-        self.q_nom = self.x_0[G1._25DoF_Obj.IDX_JOINT_POS]
+        self.q_nom = self.x_0[self.act_qposadr]
         self.set_scaling(cfg)
 
-        # Initial state randomization
-        self.keyframe_name = cfg.keyframe_name
-        self.scale_q = cfg.scale_q
-        self.scale_v = cfg.scale_v
-        self.upper_body_scale = cfg.upper_body_scale
-        self.obj_x_range = cfg.obj_x_range
-        self.obj_y_range = cfg.obj_y_range
-        self.obj_w_range = cfg.obj_w_range
-
         # Squat pose reference
-        stand_pose = self.mj_model.keyframe("knees_bent_wrist_yaw_90deg").qpos
+        stand_pose = self.mj_model.keyframe(self.cfg_scene.keyframe).qpos
         squat_pose = self.mj_model.keyframe("knees_bent_pickup").qpos
         lift_pose = self.mj_model.keyframe("home").qpos
 
@@ -299,8 +321,8 @@ class G1_ObjPickupFloor(NLP_MuJoCo):
         return valid
     
     def randomize_initial_state(self):
-        scale_q = np.full((self.Nq,), self.scale_q)
-        scale_v = np.full((self.Nv,), self.scale_v)
+        scale_q = np.full((self.Nq,), self.cfg_scene.scale_q)
+        scale_v = np.full((self.Nv,), self.cfg_scene.scale_v)
 
         scale_q[:7] /= 10.
         scale_v[:6] /= 10.
@@ -313,14 +335,14 @@ class G1_ObjPickupFloor(NLP_MuJoCo):
         scale_v[-6:] = 0.
 
         return super().set_random_initial_state(
-            self.keyframe_name,
+            self.cfg_scene.keyframe,
             scale_q,
             scale_v,
             is_floating_base=True,
             obj_qpos_id=obj_qpos_id,
             N_rollout_steps=150,
-            obj_x_range=self.obj_x_range,
-            obj_y_range=self.obj_y_range,
-            obj_w_range=self.obj_w_range,
+            obj_x_range=self.cfg_scene.obj_x_range,
+            obj_y_range=self.cfg_scene.obj_y_range,
+            obj_w_range=self.cfg_scene.obj_w_range,
             )
     
