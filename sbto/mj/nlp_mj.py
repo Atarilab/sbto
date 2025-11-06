@@ -118,13 +118,20 @@ class NLP_MuJoCo(NLPBase):
         self.q_range = self.q_max - self.q_min
         self.set_scaling(self.cfg_task)
 
-    def set_initial_state_from_keyframe(self, keyframe_name: str, actuators_only: bool = False) -> None:
+    def set_initial_state_from_keyframe(self, keyframe_name: str, with_obj: bool = False) -> None:
         keyframe = self.mj_model.keyframe(keyframe_name)
-        if actuators_only:
+        if not with_obj:
             x_p_0 = self.mj_data.qpos
             x_v_0 = self.mj_data.qvel
-            x_p_0[self.act_qposadr] = np.array(keyframe.qpos)[self.act_qposadr]
-            x_v_0[self.act_qposadr] = np.array(keyframe.qvel)[self.act_qposadr]
+            # If floating base
+            act_qpos_adr0 = self.act_qposadr[0]
+            if act_qpos_adr0 > 0:
+                qpos_adr = np.concatenate((np.arange(act_qpos_adr0), self.act_qposadr))
+                print(qpos_adr)
+            else:
+                qpos_adr = self.act_qposadr
+            x_p_0[qpos_adr] = np.array(keyframe.qpos)[qpos_adr]
+            x_v_0[qpos_adr] = np.array(keyframe.qvel)[qpos_adr]
         else:
             x_p_0 = np.array(keyframe.qpos)
             x_v_0 = np.array(keyframe.qvel)
