@@ -123,18 +123,23 @@ class NLP_MuJoCo(NLPBase):
         if not with_obj:
             x_p_0 = self.mj_data.qpos
             x_v_0 = self.mj_data.qvel
-            # If floating base
-            act_qpos_adr0 = self.act_qposadr[0]
-            if act_qpos_adr0 > 0:
-                qpos_adr = np.concatenate((np.arange(act_qpos_adr0), self.act_qposadr))
-                print(qpos_adr)
-            else:
-                qpos_adr = self.act_qposadr
+            qpos_adr = self.act_qposadr
+            qvel_adr = self.act_dofadr
+
+            # If floating base, add base pose
+            if qpos_adr[0] > 0:
+                qpos_base = np.arange(qpos_adr[0])
+                qvel_base = np.arange(qvel_adr[0])
+                qpos_adr = np.concatenate((qpos_base, qpos_adr))
+                qvel_adr = np.concatenate((qvel_base, qvel_adr))
+
+            # obj pose is not considered
             x_p_0[qpos_adr] = np.array(keyframe.qpos)[qpos_adr]
-            x_v_0[qpos_adr] = np.array(keyframe.qvel)[qpos_adr]
+            x_v_0[qvel_adr] = np.array(keyframe.qvel)[qvel_adr]
         else:
             x_p_0 = np.array(keyframe.qpos)
             x_v_0 = np.array(keyframe.qvel)
+
         x_0 = np.concatenate((x_p_0, x_v_0))
         self.set_initial_state(x_0)
         self.mj_data.qpos = keyframe.qpos
