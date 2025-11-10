@@ -4,6 +4,9 @@ import numpy as np
 import numpy.typing as npt
 import os
 
+from sbto.tasks.task_mj import TaskMj
+from sbto.utils.viewer import render_and_save_trajectory
+
 Array = npt.NDArray[np.float64]
 
 def plot_state_control(
@@ -334,3 +337,55 @@ def plot_contact_plan(
 
     else:
         plt.show()
+
+def save_plots(
+    dir_path: str,
+    task: TaskMj,
+    time,
+    x_traj,
+    u_traj,
+    obs_traj,
+    knots,
+    mean_knots,
+    cov_knots,
+    all_costs,
+    ) -> None:
+
+    Nu, Nq = task.mj_scene.Nu, task.mj_scene.Nq
+
+    plot_mean_cov(
+        time,
+        mean_knots,
+        knots,
+        cov_knots,
+        u_traj,
+        Nu=Nu,
+        save_dir=dir_path,
+    )
+
+    plot_costs(
+        all_costs,
+        save_dir=dir_path
+        )
+
+    plot_state_control(
+        time,
+        x_traj,
+        u_traj,
+        knots,
+        Nq,
+        Nu,
+        save_dir=dir_path
+        )
+    
+    contact_realized = task.get_contact_status(obs_traj)
+
+    if len(contact_realized) > 0:
+        contact_realized[contact_realized > 1] = 1
+        contact_plan = task.contact_plan if hasattr(task, "contact_plan") else None
+        plot_contact_plan(
+            contact_realized,
+            contact_plan,
+            dt=task.mj_scene.dt,
+            save_dir=dir_path
+        )
