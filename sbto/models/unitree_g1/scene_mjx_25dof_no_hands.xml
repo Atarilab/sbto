@@ -1,6 +1,6 @@
 <mujoco model="g1 mjx flat terrain scene">
 
-  <include file="g1_mjx_23dof_hands.xml"/>
+  <include file="g1_mjx_25dof_no_hands.xml"/>
 
   <statistic center="0 0 0.7" extent="1.2" meansize="0.02"/>
 
@@ -21,11 +21,9 @@
   </asset>
 
   <worldbody>
-    <geom name="floor" size="0 0 0.01" type="plane" material="groundplane" contype="1" conaffinity="130"/>
+    <body name="static">
+      <geom name="floor" size="0 0 0.01" type="plane" material="groundplane"/>
+    </body>
   </worldbody>
-
-  <include file="utils/keyframes.xml"/>
-  <include file="utils/sensors.xml"/>
-  <include file="utils/collision_loco.xml"/>
 
 </mujoco>

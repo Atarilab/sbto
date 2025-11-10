@@ -102,8 +102,9 @@ def plot_state_control(
     if len(knots.shape) == 1:
         knots = knots.reshape(-1, Nu)
     
+    T_u = u_traj.shape[0]
     for i in range(Nu):
-        axs3[i].plot(time, u_traj[:, i], label=f"u[{i}]")
+        axs3[i].plot(time[:T_u], u_traj[:, i], label=f"u[{i}]")
         axs3[i].scatter(t_knots, knots[:, i], color='red', marker='x', label="Knots")
         axs3[i].grid(True)
         axs3[i].legend()
@@ -225,8 +226,8 @@ def plot_mean_cov(
     knots = knots.reshape(-1, Nu)
     diag_cov = np.diag(cov).reshape(-1, Nu)
 
-    T = mean_knots.shape[0]
-
+    T_u = u_traj.shape[0]
+    skip_last = time.shape[0] - u_traj.shape[0]
     start, end = time[0], time[-1]
     Nknots = knots.shape[0]
     t_knots = np.linspace(start, end, Nknots, endpoint=True)
@@ -237,7 +238,7 @@ def plot_mean_cov(
         mean = mean_knots[:, i]
         std = np.sqrt(diag_cov[:, i])
 
-        ax.plot(time, u_traj[:, i], label=f"u[{i}]")
+        ax.plot(time[:T_u], u_traj[:, i], label=f"u[{i}]")
 
         ax.scatter(t_knots, mean, label=f"mean u[{i}]", color="C0", marker='o',)
         ax.fill_between(t_knots, mean - std, mean + std, color="C0", alpha=0.3, label="±1σ")

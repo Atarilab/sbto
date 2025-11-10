@@ -37,9 +37,16 @@
         <contact geom1="obj" geom2="left_hand_collision" reduce="maxforce" data="found force" num="1" name="left_hand_cnt"/>
         <contact geom1="obj" geom2="right_hand_collision" reduce="maxforce" data="found force" num="1" name="right_hand_cnt"/>
 
-        <!-- obj - table  -->
-        <contact geom1="obj" geom2="table" reduce="maxforce" data="found force" num="1" name="obj_table_cnt"/>
-        <contact geom1="obj" geom2="floor" reduce="maxforce" data="found force" num="1" name="obj_floor_cnt"/>
+        <!-- obj - floor  -->
+        <contact geom1="obj" body2="static" reduce="maxforce" data="found force" num="1" name="obj_static_cnt"/>
+
+        <!-- obj - collision  -->
+        <contact geom1="obj" geom2="left_thigh_collision" data="found" num="1" name="obj_left_thigh_cnt"/>
+        <contact geom1="obj" geom2="right_thigh_collision" data="found" num="1" name="obj_right_thigh_cnt"/>
+
+        <!-- hands position  -->
+        <framepos objtype="site" objname="right_palm" name="right_hand_pos"/>
+        <framepos objtype="site" objname="left_palm" name="left_hand_pos"/>
 
         <!-- obj position and orientation  -->
         <framepos objtype="geom" objname="obj" name="global_pos_obj"/>

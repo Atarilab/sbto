@@ -4,55 +4,75 @@ from mujoco import rollout
 from typing import Tuple, Union, Optional, List
 import copy
 from multiprocessing import cpu_count
+
 from sbto.mj.nlp_base import NLPBase, Array, CostFn, IntArray
 from sbto.utils.config import ConfigBase, dataclass
+from sbto.utils.randomize_state import randomize_joint_pos, randomize_obj_pos, normalize_quat
+from sbto.utils.model_editor import ModelEditor
 
 @dataclass
-class ConfigNLP_Mj(ConfigBase):
-    T: int
-    Nknots: int
+class ConfigTask(ConfigBase):
+    xml_path: str
+    T: int = 0
+    Nknots: int = -1
     interp_kind: str = "linear"
     Nthread: int = -1
+    scaling = "asymmetric"
 
     def __post_init__(self):
         self._filename = "config_nlp.yaml"
 
+class ConfigScene(ConfigBase):
+    # base mujoco model
+    xml_path: str
+    # random state initialization
+    keyframe: str = ""
+    scale_q : float | tuple = 0.1
+    scale_v : float | tuple = 0.1
+    is_floating_base: bool = False
+    obj_qpos_id : tuple = ()
+    N_rollout_steps: int = 150
+    obj_x_range: Tuple[float, float] = (0.0, 0.0)
+    obj_y_range: Tuple[float, float] = (0.0, 0.0)
+    obj_z_range: Tuple[float, float] = (0.0, 0.0)
+    obj_w_range: Tuple[float, float] = (0.0, 0.0)
+    # Add body
+    # "name" : {
+    #   "type" (box, cylinder, sphere),
+    #   "size" (xyz, length/radius, radius),
+    #   "pos" (xyz),
+    #   "euler" (xyz),
+    #   "rgba",
+    #   "freejoint" (bool), # False if static
+    #   "mass" (float),
+    #   "priority" (int),
+    #   "contype" (int),
+    #   "conaffinity" (int),
+    #   "solref" (tuple),
+    #   "friction" (tuple),
+    # }
+    # all other geom params
+    body: dict = {}
+
+    def __post_init__(self):
+        self._filename = "config_env.yaml"
+
 class NLP_MuJoCo(NLPBase):
     def __init__(
         self,
-        xml_path: str,
-        T: int,
-        Nknots: int = 0,
-        interp_kind = "linear",
-        Nthread: int = -1,
+        cfg_task: ConfigTask,
         ):
-        self.mj_model = mujoco.MjModel.from_xml_path(xml_path)
-        self.mj_data = mujoco.MjData(self.mj_model)
-        
-        super().__init__(
-            self.mj_model.nq,
-            self.mj_model.nv,
-            self.mj_model.nu,
-            T,
-            Nknots,
-            interp_kind
-            )
-        
-        if Nthread == -1:
+        # self.cfg_env = cfg_env
+        self.cfg_task = cfg_task
+        self.edit = ModelEditor(cfg_task.xml_path, self._on_model_edit)
+        self.mj_model = None
+        self.mj_data = None
+
+        if cfg_task.Nthread == -1:
             self.Nthread = cpu_count()
         else:
-            self.Nthread = Nthread if cpu_count() > Nthread > 0 else cpu_count()
-        print(f"Using {self.Nthread} threads for MuJoCo simulation.")
-
-        self.dt = self.mj_model.opt.timestep
-        self.duration = self.T * self.dt
-
-        # Set actuator limits
-        self.q_min = np.array(self.mj_model.jnt_range)[1:, 0]
-        self.q_max = np.array(self.mj_model.jnt_range)[1:, 1]
-
-        self.a = 0.5 * (self.q_min + self.q_max)[None, None, ...]
-        self.b = 0.5 * (self.q_max - self.q_min)[None, None, ...]
+            self.Nthread = cfg_task.Nthread if cpu_count() > cfg_task.Nthread > 0 else cpu_count()
+        print(f"Using {self.Nthread} threads for MuJoCo rollouts.")
 
         # preallocate results
         self.mj_models = None
@@ -61,6 +81,7 @@ class NLP_MuJoCo(NLPBase):
         self.state_rollout : Array = None
         self.sensordata_rollout : Array = None
         self.N_allocated = -1
+        self.T_allocated = -1
         self.Nobs = 0
 
         # rollout variables
@@ -70,18 +91,64 @@ class NLP_MuJoCo(NLPBase):
         # contact sensors obs_id
         self.contact_obs_id : Array = None
 
-    def set_initial_state_from_keyframe(self, keyframe_name: str) -> None:
+    def _on_model_edit(self, mj_model: mujoco.MjModel):
+        self.mj_model = mj_model
+        self.mj_data = mujoco.MjData(self.mj_model)
+
+        super().__init__(
+            self.mj_model.nq,
+            self.mj_model.nv,
+            self.mj_model.nu,
+            self.cfg_task.T,
+            self.cfg_task.Nknots,
+            self.cfg_task.interp_kind
+            )
+        self.dt = self.mj_model.opt.timestep
+        self.duration = self.T * self.dt
+
+        # Get actuator joint, qpos, qvel indices
+        self.act_joint_ids = self.mj_model.actuator_trnid[:, 0]  # (nact,)
+        self.act_qposadr = self.mj_model.jnt_qposadr[self.act_joint_ids]  # (nact,)
+        self.act_dofadr = self.mj_model.jnt_dofadr[self.act_joint_ids]  # (nact,)
+        
+        # Set actuator limits
+        self.q_min = np.array(self.mj_model.jnt_range)[self.act_joint_ids, 0]
+        self.q_max = np.array(self.mj_model.jnt_range)[self.act_joint_ids, 1]
+        self.q_nom = np.zeros_like(self.q_min)
+        self.q_range = self.q_max - self.q_min
+        self.set_scaling(self.cfg_task)
+
+    def set_initial_state_from_keyframe(self, keyframe_name: str, with_obj: bool = False) -> None:
         keyframe = self.mj_model.keyframe(keyframe_name)
-        x_p_0 = np.array(keyframe.qpos)
-        x_v_0 = np.array(keyframe.qvel)
+        if not with_obj:
+            x_p_0 = self.mj_data.qpos
+            x_v_0 = self.mj_data.qvel
+            qpos_adr = self.act_qposadr
+            qvel_adr = self.act_dofadr
+
+            # If floating base, add base pose
+            if qpos_adr[0] > 0:
+                qpos_base = np.arange(qpos_adr[0])
+                qvel_base = np.arange(qvel_adr[0])
+                qpos_adr = np.concatenate((qpos_base, qpos_adr))
+                qvel_adr = np.concatenate((qvel_base, qvel_adr))
+
+            # obj pose is not considered
+            x_p_0[qpos_adr] = np.array(keyframe.qpos)[qpos_adr]
+            x_v_0[qvel_adr] = np.array(keyframe.qvel)[qvel_adr]
+        else:
+            x_p_0 = np.array(keyframe.qpos)
+            x_v_0 = np.array(keyframe.qvel)
+
         x_0 = np.concatenate((x_p_0, x_v_0))
         self.set_initial_state(x_0)
         self.mj_data.qpos = keyframe.qpos
         self.mj_data.qvel = keyframe.qvel
         mujoco.mj_forward(self.mj_model, self.mj_data)
 
-    def _init_batches(self, N: int) -> None:
+    def _init_batches(self, N: int, T:int) -> None:
         self.N_allocated = N
+        self.T_allocated = T
         self.Nobs = self.mj_model.nsensordata
         self.mj_models = [self.mj_model] * self.N_allocated
         self.mj_datas = [copy.copy(self.mj_data) for _ in range(self.Nthread)]
@@ -89,9 +156,9 @@ class NLP_MuJoCo(NLPBase):
         # [N, Nx+1], include time as the first state
         self.initial_states = np.tile(np.concatenate((t0, self.x_0)), (self.N_allocated, 1))
         # [N, T, Nx+1]
-        self.state_rollout = np.empty((self.N_allocated, self.T, self.Nx+1))
+        self.state_rollout = np.empty((self.N_allocated, T, self.Nx+1))
         # [N, T, Nobs]
-        self.sensordata_rollout = np.empty((self.N_allocated, self.T, self.Nobs))
+        self.sensordata_rollout = np.empty((self.N_allocated, T, self.Nobs))
 
     @staticmethod
     def get_state_full(model, data):
@@ -204,19 +271,18 @@ class NLP_MuJoCo(NLPBase):
         Rollout the dynamics with the given control trajecotries [-1, T, Nu].
         Returns state [-1, T, Nu], control [-1, T, Nu] and observations [-1, T, Nobs] trajectories.
         """
-        if self.N_allocated != pd_target_traj.shape[0]:
-            self._init_batches(pd_target_traj.shape[0])
-        else:
-            self._reset_data()
+        N, T, Nu = pd_target_traj.shape
+        if self.N_allocated != N or self.T_allocated != T:
+            self._init_batches(N, T)
 
         rollout.rollout(self.mj_models,
                         self.mj_datas,
                         self.initial_states,
                         control=pd_target_traj,
-                        nstep=self.T,
+                        nstep=T,
                         state=self.state_rollout,
                         sensordata=self.sensordata_rollout, 
-                        skip_checks=False,
+                        skip_checks=True,
                         persistent_pool=self._persistent_pool,
                         chunk_size=self._chunk_size
                         )
@@ -247,3 +313,127 @@ class NLP_MuJoCo(NLPBase):
             print("Warning: self.contact_obs_id is not set.")
             return []
         return obs_traj[:, self.contact_obs_id]
+    
+    def are_initial_states_valid(self, states: Array, obs: Array) -> Array:
+        """
+        Checks if candidate initial states are valid
+
+        Args:
+            state (Array): [N, Nx]
+            obs (Array): [N, Nobs]
+
+        Returns:
+            valid (Array): [N], boolean array 
+        """
+        N = states.shape[0]
+        return np.full(N, True)
+    
+    def set_random_initial_state(
+        self,
+        keyframe: str,
+        scale_q : float | Array = 0.1,
+        scale_v : float | Array = 0.1,
+        is_floating_base: bool = False,
+        obj_qpos_id : tuple = (),
+        N_rollout_steps: int = 150,
+        obj_x_range: Tuple[float, float] = (0.0, 0.0),
+        obj_y_range: Tuple[float, float] = (0.0, 0.0),
+        obj_z_range: Tuple[float, float] = (0.0, 0.0),
+        obj_w_range: Tuple[float, float] = (0.0, 0.0),
+        ) -> None:
+
+        self.set_initial_state_from_keyframe(keyframe)
+
+        N = 128
+        x_0 = np.copy(self.x_0)
+
+        def _randomize_and_rollout(N_samples, N_steps):
+
+            # Randomize state
+            x_0_rand = randomize_joint_pos(self.mj_model, N_samples, x_0, scale_q, scale_v)
+            if is_floating_base:
+                x_0_rand = normalize_quat(x_0_rand, slice=slice(3, 7))
+            if obj_qpos_id:
+                x_0_rand[:, obj_qpos_id] = randomize_obj_pos(
+                    N_samples,
+                    x_0[obj_qpos_id],
+                    obj_x_range,
+                    obj_y_range,
+                    obj_z_range,
+                    obj_w_range,
+                    )
+
+            ### Rollout to check feasibility
+            
+            # Set random initial states
+            if self.N_allocated != N_samples:
+                self._init_batches(N_samples, N_steps)
+            self.initial_states[:, 1:] = x_0_rand
+
+            # Set fixed pd targets for T step rollout
+            joint_ids = self.mj_model.actuator_trnid[:, 0]  # (nact,)
+            actuator_qposadr = self.mj_model.jnt_qposadr[joint_ids]  # (nact,)
+            pd_target = x_0_rand[:, actuator_qposadr]
+            pd_target_traj = np.tile(pd_target[:, None, :], (1, N_steps, 1))
+
+            # Rollout to ensure feasibility & quasi-stability
+            states, _, obs_traj = self._rollout_dynamics(pd_target_traj)
+
+            # Returns last states of the rollouts as candidate intial states
+            return states[:, -1, 1:], obs_traj[:, -1, :]
+
+        MAX_IT = 25
+        it = 0
+
+        while it < MAX_IT:
+            states, obs_traj = _randomize_and_rollout(N, N_rollout_steps)
+            is_valid = self.are_initial_states_valid(states, obs_traj)
+
+            if np.any(is_valid):
+                # Take first valid state
+                id = np.argmax(is_valid)
+                self.set_initial_state(states[id])
+                break
+
+            it += 1
+
+
+        if it == MAX_IT:
+            print(f"Failed to set a random initial state after {MAX_IT} iterations.")
+            print(f"Setting intial state to keyframe {keyframe}")
+
+    def add_scene_body(self, cfg_scene: ConfigScene):
+        VALID_TYPES = ["box", "cylinder", "sphere"]
+        INVALID_KWARGS = ["type"]
+
+        for body_name, kwargs in cfg_scene.body.items():
+            # filter valid obj kwargs
+            valid_obj_kwargs = {k: v for k, v in kwargs.items() if not k in INVALID_KWARGS}
+
+            # get geom type
+            geom_type = kwargs["type"]
+            if not geom_type in VALID_TYPES:
+                geom_type = "box"
+
+            match geom_type:
+                case "box":
+                    self.edit.add_box(name=body_name, **valid_obj_kwargs)
+                case "cylinder":
+                    self.edit.add_cylinder(name=body_name, **valid_obj_kwargs)
+                case "sphere":
+                    self.edit.add_sphere(name=body_name, **valid_obj_kwargs)
+
+    def rollout_get_traj_with_x0(self, u_knots : Array) -> Tuple[Array, Array, Array]:
+        """
+        Rollout the dynamics with the given control knots [-1, Nknots, Nu].
+        Interpolate and rescale the knots to the desired range to
+        get the full trajectory.
+        Returns:
+            - state (including x0) [-1, T+1, Nu]
+            - control [-1, T, Nu]
+            - observations [-1, T, Nobs] trajectories
+        """
+        u_traj = self.interpolate(self.f_rescale(u_knots))
+        x_traj, _, obs_traj = self._rollout_dynamics(u_traj)
+        x_traj_full = np.concatenate((self.initial_states[:, None, :], x_traj), axis=1)
+        return x_traj_full, u_traj, obs_traj

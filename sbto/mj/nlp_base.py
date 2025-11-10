@@ -1,13 +1,14 @@
 from abc import ABC, abstractmethod
-from typing import Tuple, Union, Callable, TypeAlias, List, Optional
-import time
+from typing import Tuple, Union, Callable, TypeAlias, List, Optional, Any
 import numpy as np
 import numpy.typing as npt
 from scipy.interpolate import interp1d
 from typing import TypeAlias
 from enum import Enum
 from functools import wraps, partial
-from numba import njit, prange
+
+from sbto.utils.scaling import AVAILABLE_SCALING
+from sbto.utils.config import ConfigBase
 
 Array = npt.NDArray[np.float64]
 IntArray = npt.NDArray[np.int64]
@@ -51,6 +52,33 @@ class NLPBase(ABC):
         # cost functions
         self._costs_names: List[str] = []
         self._costs_fn: List[CostFn] = []
+
+        # pd target scaling
+        self.q_min = np.zeros((self.Nu, ))
+        self.q_max = np.zeros((self.Nu, ))
+        self.q_nom = np.zeros((self.Nu, ))
+        self.q_range = np.ones_like(self.q_nom)
+        self.f_rescale = lambda u_knots : u_knots.reshape(-1, self.Nknots, self.Nu)
+   
+    def set_scaling(self, cfg: ConfigBase) -> Callable[[Any], Any]:
+        scaling_name = cfg.scaling
+        if scaling_name not in AVAILABLE_SCALING:
+            raise ValueError(
+                f"Scaling '{scaling_name}' not available. "
+                f"Choose from: {', '.join(AVAILABLE_SCALING.keys())}"
+            )
+        _scale = partial(
+            AVAILABLE_SCALING[scaling_name],
+            q_min=self.q_min,
+            q_max=self.q_max,
+            q_nom=self.q_nom,
+            **cfg.args
+        )
+
+        # Make shure act is reshaped
+        self.f_rescale = lambda act: _scale(
+            act.reshape(-1, self.Nknots, self.Nu)
+            )
 
     def _check_state_array_shape(self, x: Array) -> None:
         valid_shape = (self.Nx,)
@@ -280,28 +308,23 @@ class NLPBase(ABC):
     
     def rollout(self, u_knots : Array) -> Tuple[Array, Array, Array]:
         """
-        Rollout the dynamics with the given control knots.
-        Returns state, control and observations trajectories.
+        Rollout the dynamics with the given control knots [-1, Nknots, Nu].
+        Interpolate and rescale the knots to the desired range to
+        get the full trajectory.
+        Returns state [-1, T, Nu], control [-1, T, Nu] and observations [-1, T, Nobs] trajectories.
         """
-        u_traj = self.interpolate(u_knots.reshape(-1, self.Nknots, self.Nu))
+        u_traj = self.interpolate(self.f_rescale(u_knots))
         return self._rollout_dynamics(u_traj)
     
-    def get_rollout_data(self, knots_qd_traj: Array) -> Tuple[Array, Array, Array, float]:
+    def rollout_traj(self, u_traj : Array) -> Tuple[Array, Array, Array]:
         """
-        Evaluate joint target trajectory and returns rollout data.
-        Args:
-            -qd_traj [N, Nknots*Nu]
+        Rollout the dynamics with the given control trajecotries [-1, T, Nu].
+        Interpolate and rescale the knots to the desired range to
+        get the full trajectory.
+        Returns state [-1, T, Nu], control [-1, T, Nu] and observations [-1, T, Nobs] trajectories.
         """
-        knots_qd_traj = knots_qd_traj.reshape(-1, self.Nvars_u)
-        x_traj, knots_qd_traj, obs_traj = self.rollout(knots_qd_traj)
-        cost = self.cost(x_traj, knots_qd_traj, obs_traj)
-        return (
-            np.squeeze(x_traj),
-            np.squeeze(knots_qd_traj),
-            np.squeeze(obs_traj),
-            np.squeeze(cost),
-        )
-
+        return self._rollout_dynamics(u_traj)
+    
     @abstractmethod
     def _rollout_dynamics(self, u_traj: Array) -> Tuple[Array, Array, Array]:
         """

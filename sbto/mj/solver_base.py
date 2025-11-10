@@ -1,16 +1,14 @@
 import numpy as np
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Tuple
+from typing import Any, Tuple
 import time
 from tqdm import trange
-from functools import partial 
 from copy import deepcopy
 
 from sbto.mj.nlp_mj import NLPBase, Array
 from sbto.utils.config import ConfigBase, ConfigNPZBase
 from sbto.utils.sampler import SamplerAbstract, AVAILABLE_SAMPLERS
-from sbto.utils.scaling import AVAILABLE_SCALING
 
 @dataclass
 class SolverState(ConfigNPZBase):
@@ -34,7 +32,6 @@ class SolverConfig(ConfigBase):
     N_it: int = 100
     sigma0: float = 0.2
     sampler: str = "normal"
-    scaling: str = "asymmetric"
 
     def __post_init__(self):
         self._filename = "config_solver.yaml"
@@ -52,9 +49,7 @@ class SamplingBasedSolver(ABC):
         self.N_it = cfg.N_it
         self.N_samples = cfg.N_samples
         self.sigma0 = cfg.sigma0
-        self._set_q_range()
         self.sampler = self._get_sampler(cfg)
-        self.f_rescale = self._get_scaling(cfg)
 
         self.it = 0
         self.pbar_postfix = {}
@@ -68,46 +63,6 @@ class SamplingBasedSolver(ABC):
             )
         SamplerClass = AVAILABLE_SAMPLERS[sampler_name]
         return SamplerClass(**cfg.args)
-    
-    def _get_scaling(self, cfg: SolverConfig) -> Callable[[Any], Any]:
-        scaling_name = cfg.scaling
-        if scaling_name not in AVAILABLE_SCALING:
-            raise ValueError(
-                f"Scaling '{scaling_name}' not available. "
-                f"Choose from: {', '.join(AVAILABLE_SCALING.keys())}"
-            )
-        _scale = partial(
-            AVAILABLE_SCALING[scaling_name],
-            q_min=self.q_min,
-            q_max=self.q_max,
-            q_nom=self.q_nom,
-            **cfg.args
-        )
-
-        # Make shure act is reshaped
-        return lambda act: _scale(
-            act.reshape(-1, self.nlp.Nknots, self.nlp.Nu)
-            )
-    
-    def _set_q_range(self):
-        if not all((
-            hasattr(self.nlp, "q_min"),
-            hasattr(self.nlp, "q_max"),
-            hasattr(self.nlp, "q_nom"),
-            )):
-            print("Cannot find joint range... set to [0, 1].")
-            self.q_min = np.full(self.nlp.Nvars_u, 0.) 
-            self.q_max = np.full(self.nlp.Nvars_u, 1.) 
-            self.q_nom = np.full(self.nlp.Nvars_u, 0.5) 
-        else:
-            self.q_min = self.nlp.q_min
-            self.q_max = self.nlp.q_max
-            self.q_nom = self.nlp.q_nom
-
-        if not (np.all(self.q_min <= self.q_nom) and  np.all(self.q_nom <= self.q_max)):
-            raise ValueError("q_nom must be strictly inside (q_min, q_max)")
-        
-        self.q_range = self.q_max - self.q_min
 
     def init_state(self,
                    mean: Array | Any = None,
@@ -179,9 +134,7 @@ class SamplingBasedSolver(ABC):
         Args:
             -sampled_knots [N_samples, Nknots*Nu]
         """
-        samples_q_des = self.f_rescale(samples_knots)
-        cost = self.nlp.cost(*self.nlp.rollout(samples_q_des))
-        return samples_q_des, cost
+        return self.nlp.cost(*self.nlp.rollout(samples_knots))
     
     def update_min_cost(self, state: SolverState, min_cost_rollout : float) -> None:
         """

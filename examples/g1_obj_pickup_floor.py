@@ -22,7 +22,6 @@ def main():
         sigma0=0.25,
         a=1.e-5,
         b=1.e-4,
-        scaling="asymmetric",
         )
     sweep_seed = sweep_param(
         cfg_solver,

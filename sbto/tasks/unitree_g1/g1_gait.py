@@ -3,16 +3,28 @@ import numpy as np
 from sbto.mj.nlp_mj import NLP_MuJoCo
 import sbto.tasks.unitree_g1.g1_constants as G1
 from sbto.utils.gait import GaitConfig, generate_contact_plan
-from sbto.mj.nlp_mj import ConfigNLP_Mj, dataclass
+from sbto.mj.nlp_mj import ConfigTask, dataclass, ConfigScene
 from sbto.utils.cost import quadratic_cost_nb, quaternion_dist_nb, hamming_dist_nb
 
-@dataclass
-class ConfigG1Gait(ConfigNLP_Mj):
-    # Scene
-    scene_file: str = "scene_mjx_23dof.xml"
 
-    # --- Joint reference ---
-    keyframe_name: str = "knees_bent"
+@dataclass
+class SceneG1ObjPickupFloor(ConfigScene):
+    xml_path: str = "sbto/models/unitree_g1/scene_mjx_25dof_no_hands.xml"
+    keyframe: str = "knees_bent_wrist_yaw_90deg"
+    # --- Additional xml files ---
+    sensor_file: str = "sbto/models/unitree_g1/sensors/default.xml"
+    contact_pair_file: str = "sbto/models/unitree_g1/contact_pairs/minimal.xml"
+    keyframes_file: str = "sbto/models/unitree_g1/keyframes/g1_25dof.xml"
+    # --- Randomize initial state ---
+    scale_q: float = 0.06
+    scale_v: float = 0.3
+    upper_body_scale: float = 5.
+
+
+@dataclass
+class ConfigG1Gait(ConfigTask):
+    # Scene
+    xml_path: str = "./sbto/models/unitree_g1/scene_mjx_25dof_no_hands.xml"
 
     # --- Desired motion parameters ---
     v_des: tuple = (0.5, 0.0, 0.0)  # Desired torso linear velocity [vx, vy, vz]
@@ -20,7 +32,7 @@ class ConfigG1Gait(ConfigNLP_Mj):
     # --- Desired gait parameters ---
     stance_ratio: tuple = (0.55, 0.55)
     phase_offset: tuple = (0.5, 0.0)
-    nominal_period = 0.9
+    nominal_period: float = 0.9
 
     # --- State costs ---
     joint_pos_weight: float = 0.
@@ -67,26 +79,30 @@ class ConfigG1Gait(ConfigNLP_Mj):
 class G1_Gait(NLP_MuJoCo):
 
     def __init__(self, cfg: ConfigG1Gait):
-        xml_path = os.path.join(G1.XML_DIR_PATH, cfg.scene_file)
-        super().__init__(xml_path, cfg.T, cfg.Nknots, cfg.interp_kind, cfg.Nthread)
+        super().__init__(cfg)
+
+        self.cfg_scene = SceneG1ObjPickupFloor()
+        self.edit.add_keyframes_from_file(self.cfg_scene.keyframes_file)
+        self.edit.add_cnt_pairs_from_file(self.cfg_scene.contact_pair_file)
+        self.edit.add_sensors_from_file(self.cfg_scene.sensor_file)
+        self.add_scene_body(self.cfg_scene)
+        self._on_model_edit(self.edit.get_model())
 
         # --- Initial state setup ---
-        self.set_initial_state_from_keyframe(cfg.keyframe_name)
+        self.set_initial_state_from_keyframe(self.cfg_scene.keyframe)
 
-        self.q_min = np.array(G1._23DoF.RESTRICTED_JOINT_RANGE)[:, 0]
-        self.q_max = np.array(G1._23DoF.RESTRICTED_JOINT_RANGE)[:, 1]
 
-        self.q_nom = self.x_0[G1._23DoF.IDX_JOINT_POS]
-        self.a_min = self.q_nom - self.q_min
-        self.a_max = self.q_max - self.q_nom
-
+        self.q_min = np.array(G1._25DoF.RESTRICTED_JOINT_RANGE)[:, 0]
+        self.q_max = np.array(G1._25DoF.RESTRICTED_JOINT_RANGE)[:, 1]
+        self.q_nom = self.x_0[self.act_qposadr]
+        self.set_scaling(cfg)
         self.v_des = np.array(cfg.v_des)
 
         # --- Add costs ---
         self.add_state_cost(
             "joint_pos",
             quadratic_cost_nb,
-            G1._23DoF.IDX_JOINT_POS,
+            G1._25DoF.IDX_JOINT_POS,
             weights=cfg.joint_pos_weight,
             use_intial_as_ref=True,
             weights_terminal=cfg.joint_pos_weight_terminal,
@@ -94,13 +110,13 @@ class G1_Gait(NLP_MuJoCo):
         self.add_state_cost(
             "joint_vel_upper",
             quadratic_cost_nb,
-            G1._23DoF.IDX_JOINT_VEL[G1._23DoF.IDX_WAIST-7:],
+            G1._25DoF.IDX_JOINT_VEL[G1._25DoF.IDX_WAIST-7:],
             weights=cfg.joint_vel_weight,
         )
         self.add_state_cost(
             "joint_vel_lower",
             quadratic_cost_nb,
-            G1._23DoF.IDX_JOINT_VEL[:G1._23DoF.IDX_WAIST-7],
+            G1._25DoF.IDX_JOINT_VEL[:G1._25DoF.IDX_WAIST-7],
             weights=cfg.joint_vel_weight * cfg.joint_vel_lower_mult,
         )
         self.add_sensor_cost(
@@ -171,7 +187,7 @@ class G1_Gait(NLP_MuJoCo):
 
         # --- Control cost ---
         w_u_traj = np.full(self.Nu, cfg.u_weight_default)
-        w_u_traj[list(G1._23DoF.IDX_HIP_KNEE)] *= cfg.u_weight_hip_knee_scale
+        w_u_traj[list(G1._25DoF.IDX_HIP_KNEE)] *= cfg.u_weight_hip_knee_scale
         w_u_traj[13:] *= cfg.u_weight_upperbody_scale
         self.add_control_cost(
             "u_traj",
@@ -179,7 +195,7 @@ class G1_Gait(NLP_MuJoCo):
             idx=list(range(self.Nu)),
             weights=w_u_traj,
         )
-        w_u_torque = np.full(self.Nu, cfg.u_torques)
+        w_u_torque = np.full(self.Nu-2, cfg.u_torques)
         w_u_torque[13:] *= cfg.u_weight_upperbody_scale
         self.add_sensor_cost(
             G1.Sensors.TORQUES,
@@ -189,3 +205,44 @@ class G1_Gait(NLP_MuJoCo):
 
         # --- Action scaling ---
         self.action_scale = cfg.action_scale
+
+
+    def are_initial_states_valid(self, states, obs):
+        Z_MIN = 0.6
+        QUAT_DIST_MAX = 0.4
+        TORSO_XY_MAX_DIST = 0.07
+
+        is_standing = states[:, 2] > Z_MIN
+
+        torso_xyz = self.get_sensor_data(obs, G1.Sensors.TORSO_POS)
+        is_centered = np.abs(torso_xyz[:, 0]) < TORSO_XY_MAX_DIST
+        is_centered &= np.abs(torso_xyz[:, 1]) < TORSO_XY_MAX_DIST
+
+        quat_ref = np.array([1., 0., 0., 0.]).reshape(1, 4)
+        quat = states[:, 3:7].reshape(-1, 1, 4)
+        w = np.full_like(quat_ref, 1.)
+        quat_dist = quaternion_dist_nb(quat, quat_ref, w)
+        is_straight = quat_dist < QUAT_DIST_MAX
+
+        valid = is_straight & is_centered & is_standing
+        return valid
+    
+    def randomize_initial_state(self):
+        scale_q = np.full((self.Nq,), self.scale_q)
+        scale_v = np.full((self.Nv,), self.scale_v)
+
+        scale_q[:7] /= 10.
+        scale_v[:6] /= 5.
+        scale_q[-7:] = 0.
+        scale_v[-6:] = 0.
+
+        scale_q[G1._25DoF_Obj.IDX_WAIST+7:] *= self.upper_body_scale
+
+        return super().set_random_initial_state(
+            self.keyframe_name,
+            scale_q,
+            scale_v,
+            is_floating_base=True,
+            N_rollout_steps=100,
+            )
+    
