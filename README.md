@@ -26,5 +26,5 @@ pip install -e .
 
 ### Test
 ```python
-python3 ./exemples/g1_gait.py
+python3 sbto/main.py task=g1/pickup_floor
 ```
