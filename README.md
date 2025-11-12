@@ -11,6 +11,7 @@ Sampling Based Trajectory Optimization (SBTO)
 - matplotlib=3.10.6
 - pyyaml=6.0.3
 - opencv-python=4.12.0
+- hydra-core==1.3.2
 
 ### Install
 ```bash
