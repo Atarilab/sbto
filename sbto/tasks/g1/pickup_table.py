@@ -73,9 +73,13 @@ class G1PickupTable(TaskMj):
         dt = sim.mj_scene.dt
         T = sim.T
 
+        pd_range = np.array(G1._25DoF_Obj.RESTRICTED_JOINT_RANGE)
+        pd_range[G1._25DoF.IDX_WAIST_YAW, 0] = -0.25
+        pd_range[G1._25DoF.IDX_WAIST_YAW, 1] = 0.25
+
         sim.set_act_limits(
-            np.array(G1._25DoF_Obj.RESTRICTED_JOINT_RANGE)[:, 0],
-            np.array(G1._25DoF_Obj.RESTRICTED_JOINT_RANGE)[:, 1],
+            pd_range[:, 0],
+            pd_range[:, 1],
         )
 
         obj_position_0 = np.array(cfg.obj_init_pos)

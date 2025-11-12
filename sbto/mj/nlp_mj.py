@@ -142,8 +142,8 @@ class NLP_MuJoCo(NLPBase):
 
         x_0 = np.concatenate((x_p_0, x_v_0))
         self.set_initial_state(x_0)
-        self.mj_data.qpos = keyframe.qpos
-        self.mj_data.qvel = keyframe.qvel
+        self.mj_data.qpos = np.copy(x_p_0)
+        self.mj_data.qvel = np.copy(x_v_0)
         mujoco.mj_forward(self.mj_model, self.mj_data)
 
     def _init_batches(self, N: int, T:int) -> None:

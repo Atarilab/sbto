@@ -85,7 +85,7 @@ class Sensors:
     id_cnt_status_feet = list(range(0, _n_feet, _cnt_sens_dim_per_foot))
     id_cnt_force_feet = [
             i for i in
-            range(0, _n_feet, _cnt_sens_dim_per_foot)
+            range(0, _n_feet)
             if i % _cnt_sens_dim_per_foot != 0
             ]
     
@@ -93,7 +93,7 @@ class Sensors:
     id_cnt_status_hands = list(range(0, _n_hands, _cnt_sens_dim_per_hand))
     id_cnt_force_hands = [
             i for i in
-            range(0, _n_hands, _cnt_sens_dim_per_hand)
+            range(0, _n_hands)
             if i % _cnt_sens_dim_per_hand != 0
             ]
     
