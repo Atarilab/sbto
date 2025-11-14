@@ -1,0 +1,14 @@
+=== NETWORK SUMMARY ===
+Input size (obs_dim): 160
+Output size (num_actions): 29
+Hidden layers: (256, 256, 256)
+Activation: elu
+Validation MSE: 0.000066
+
+=== TRAINING PARAMETERS ===
+Epochs: 30
+Batch size: 1024
+Learning rate: 1e-3
+
+=== MODEL STATS ===
+Total parameters: 180734
