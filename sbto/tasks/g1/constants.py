@@ -42,6 +42,10 @@ class Sensors:
         "left_foot_pos",
         "right_foot_pos",
     ]
+    FEET_QUAT = [
+        "left_foot_quat",
+        "right_foot_quat",
+    ]
     FEET_VEL = [
         "left_foot_vel",
         "right_foot_vel",
