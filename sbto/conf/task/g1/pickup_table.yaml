@@ -1,0 +1,111 @@
+# Configuration for G1 Object Pickup Table Task
+# Path: conf/task/g1/obj_pickup_table.yaml
+
+_target_: sbto.tasks.g1.pickup_table.G1PickupTable
+
+cfg:
+  _target_: sbto.tasks.g1.pickup_table.ConfigG1PickupTable
+  # === State costs ===
+  joint_pos_weight: 0.1
+  joint_pos_weight_terminal: 0.0
+  joint_vel_weight: 0.05
+  joint_vel_weight_terminal: 0.5
+
+  # === Object state goal ===
+  obj_init_pos: [0.35, 0.0, 0.715]
+  obj_delta_position: [0.0, 0.0, 0.1]
+  obj_delta_orientation: [0.0, 0.0, 0.0]
+  reaching_cnt_time: 0.5
+  delay_lift: 0.07
+
+  # === Object state costs ===
+  obj_pos_weight: 1.0
+  obj_pos_weight_terminal: [100.0, 100.0, 100.0]
+  obj_quat_weight: 10.0
+  obj_quat_weight_terminal: 20.0
+  obj_linvel_weight: 0.1
+  obj_linvel_weight_term: 20.0
+  obj_angvel_weight: 0.1
+  obj_angvel_weight_term: 10.0
+
+  # === Torso position cost ===
+  torso_pos_weight: [1.0, 1.0, 5.0]
+  torso_pos_weight_terminal: [1.0, 1.0, 50.0]
+
+  # === Torso linear velocity cost ===
+  torso_linvel_weight: [1.0, 1.0, 1.0]
+  torso_linvel_weight_terminal: [25.0, 25.0, 50.0]
+
+  # === Torso angular velocity cost ===
+  torso_angvel_weight: 1.0
+  torso_angvel_weight_terminal: 1.0
+
+  # === Torso orientation cost ===
+  torso_quat_weight: 0.05
+  torso_quat_weight_terminal: 5.0
+
+  # === Contact plan and cost ===
+  contact_obj_weight: 15.0
+  contact_hands_weight: 10.0
+  contact_force_obj_weight: 1.0e-3
+  contact_feet_weight: 1.0
+  contact_force_feet_weight: 1.0e-6
+
+  # === Control cost ===
+  u_weight_default: 1.0
+  u_weight_hip_knee_scale: 1.0
+  u_weight_upperbody_scale: 0.1
+  u_torques: 1.0e-5
+
+# === Rollout simulator ===
+sim:
+  _target_: sbto.sim.sim_mj_rollout.SimMjRollout
+  cfg:
+    _target_: sbto.sim.sim_mj_rollout.ConfigMjRollout
+    T: 200
+    Nknots: 6
+    keyframe_x0: knees_bent_wrist_yaw_90deg
+    interp_kind: linear
+    Nthread: 20
+    _chunk_size: 2
+  scaling:
+    _target_: sbto.sim.action_scaling.Scaling
+    name: asymmetric
+    clip: True
+
+  # === MuJoCo Scene ===
+  mj_scene:
+    _target_: sbto.sim.scene_mj.MjScene
+    cfg:
+      _target_: sbto.sim.scene_mj.ConfigMjScene
+      xml_scene_path: sbto/models/unitree_g1/scene_mjx_25dof_no_hands.xml
+      xml_sensors_path: sbto/models/unitree_g1/sensors/with_obj.xml
+      xml_contact_pairs_path: sbto/models/unitree_g1/contact_pairs/with_obj.xml
+      xml_keyframes_path: sbto/models/unitree_g1/keyframes/g1_25dof.xml
+
+      # === Additional bodies ===
+      add_body:
+        obj:
+          type: box
+          pos: [0.35, 0.0, 0.715]
+          size: [0.1, 0.1, 0.115]
+          mass: 0.6
+          euler: [0.0, 0.0, 0.0]
+          rgba: [0.3, 0.3, 0.3, 1.0]
+          group: 1
+          freejoint: true
+          priority: 0
+          condim: 3
+          contype: 0
+          conaffinity: 1
+          solref: [0.008, 1.0]
+          friction: [0.6, 0.003, 0.001]
+
+        table:
+          type: box
+          pos: [0.5, 0.0, 0.595]
+          size: [0.25, 0.4, 0.005]
+          euler: [0.0, 0.0, 0.0]
+          rgba: [0.8, 0.8, 0.8, 1.0]
+          group: 1
+          bodyname: static

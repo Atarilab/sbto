@@ -1,0 +1,8 @@
+defaults:
+  - task: g1/gait
+  - solver: cem
+  - _self_
+
+description: ""
+save_fig: true
+init_knots_from_ref: false

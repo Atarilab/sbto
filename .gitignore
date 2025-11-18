@@ -1,12 +1,9 @@
 test/
 plots/
 runs/
+datasets/
+outputs/
 MUJOCO_LOG.TXT
-# Project data (large files)
-sbto/data/*.npz
-sbto/data/*.npz.*
-mjlab/
-mujoco_warp/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -215,5 +212,3 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
-
-

@@ -1,0 +1,65 @@
+_target_: sbto.tasks.g1.move_large_box_ref.G1MoveLargeBoxRef
+
+cfg:
+  _target_: sbto.tasks.g1.move_large_box_ref.ConfigG1MoveLargeBoxRef
+
+  ref_motion_path: "./sbto/tasks/g1/motion/move_large_box_no_obk.pkl"
+  t0: 0.0
+  speedup: 1.1
+  z_offset: 0.024
+
+  # --- State costs ---
+  joint_pos_weight: 0.1
+  joint_vel_weight: 0.05
+  base_pos_weight: 5.0
+  base_quat_weight: 1.0
+
+  # --- Torso pose/vel ---
+  torso_pos_weight: 30.0
+  torso_quat_weight: 1.0
+  torso_quat_weight_terminal: 10.0
+  torso_linvel_weight: 1.0
+  torso_linvel_weight_terminal: 10.0
+  torso_angvel_weight: 1.0
+  torso_angvel_weight_terminal: 10.0
+
+  # --- Obj pose cost ---
+  obj_pos_weight: 30.0
+  obj_quat_weight: 10.0
+
+  # --- Hand pose cost ---
+  hand_position: 3.0
+  hand_orientation: 0.1
+
+  # --- Foot pose cost ---
+  foot_position: 10.0
+  foot_orientation: 0.1
+
+  # --- Feet Contact cost ---
+  contact_feet_weight: 1.0
+  contact_force_feet_weight: 1.0e-6
+
+
+# === Rollout simulator ===
+sim:
+  _target_: sbto.sim.sim_mj_rollout.SimMjRollout
+  cfg:
+    _target_: sbto.sim.sim_mj_rollout.ConfigMjRollout
+    T: 300
+    Nknots: 15
+    interp_kind: cubic
+    Nthread: 20
+    _chunk_size: 2
+  scaling:
+    _target_: sbto.sim.action_scaling.Scaling
+    name: nominal
+    clip: False
+
+  # === MuJoCo Scene ===
+  mj_scene:
+    _target_: sbto.sim.scene_mj.MjScene
+    cfg:
+      _target_: sbto.sim.scene_mj.ConfigMjScene
+      xml_scene_path: sbto/models/unitree_g1/scene_mjx_29dof_no_hands.xml
+      xml_sensors_path: sbto/models/unitree_g1/sensors/tracking_no_obj.xml
+      xml_contact_pairs_path: sbto/models/unitree_g1/contact_pairs/minimal.xml

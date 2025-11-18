@@ -1,0 +1,95 @@
+# Configuration for G1 pickup floor task
+# Path: conf/task/g1/pickup_floor.yaml
+
+_target_: sbto.tasks.g1.pickup_floor.G1PickupFloor
+cfg:
+  _target_: sbto.tasks.g1.pickup_floor.ConfigG1PickupFloor
+
+  # === Timing ===
+  squat_time: 1.0         # seconds to reach squat pose
+  pickup_time: 0.2        # seconds to reach the box after squatting
+  standup_time: 0.1       # seconds to reach the box after pickup
+
+  # === Object goal ===
+  obj_init_pos: [0.35, 0.0, 0.115]
+  obj_delta_position: [0.0, 0.0, 0.7]
+
+  obj_pos_weight: 0.0
+  obj_pos_weight_terminal: [10.0, 10.0, 10.0]
+  obj_quat_weight: 0.6
+  obj_quat_weight_terminal: 0.6
+
+  # === Joint costs ===
+  joint_pos_weight: 0.2
+  joint_pos_weight_terminal: 200.0
+  joint_vel_weight: 0.01
+  joint_vel_weight_terminal: 0.1
+
+  # === Base height/orientation ===
+  base_height_weight: 2.0
+  base_height_weight_terminal: 75.0
+
+  base_quat_weight: 3.0
+  base_quat_weight_terminal: 50.0
+
+  # === Torso position ===
+  torso_pos_weight: [2.0, 2.0, 1.0]
+  torso_pos_weight_terminal: [50.0, 50.0, 30.0]
+
+  # === Object dynamics ===
+  obj_linvel_weight: 1.0e-3
+  obj_angvel_weight: 1.0e-2
+
+  # === Contact weights ===
+  contact_hands_weight: 3.0
+  contact_hands_force: 1.0e-5
+  contact_feet_weight: 0.1
+  contact_obj_weight: 2.0
+  collision_obj_thigh: 1.0
+
+  # === Control cost ===
+  u_weight_default: 1.0e-4
+
+# === Rollout simulator ===
+sim:
+  _target_: sbto.sim.sim_mj_rollout.SimMjRollout
+  cfg:
+    _target_: sbto.sim.sim_mj_rollout.ConfigMjRollout
+    T: 200
+    Nknots: 6
+    keyframe_x0: knees_bent_wrist_yaw_90deg
+    interp_kind: linear
+    Nthread: 20
+    _chunk_size: 2
+  scaling:
+    _target_: sbto.sim.action_scaling.Scaling
+    name: asymmetric
+    clip: True
+
+  # === MuJoCo Scene ===
+  mj_scene:
+    _target_: sbto.sim.scene_mj.MjScene
+    cfg:
+      _target_: sbto.sim.scene_mj.ConfigMjScene
+      xml_scene_path: sbto/models/unitree_g1/scene_mjx_25dof_no_hands.xml
+      xml_sensors_path: sbto/models/unitree_g1/sensors/with_obj.xml
+      xml_contact_pairs_path: sbto/models/unitree_g1/contact_pairs/with_obj.xml
+      xml_keyframes_path: sbto/models/unitree_g1/keyframes/g1_25dof.xml
+
+      # === Additional bodies to add ===
+      add_body:
+        obj:
+          type: box
+          pos: [0.35, 0.0, 0.115]
+          size: [0.1, 0.1, 0.115]
+          mass: 0.6
+          euler: [0.0, 0.0, 0.0]
+          rgba: [0.3, 0.3, 0.3, 1.0]
+          group: 1
+          freejoint: true
+          priority: 0
+          condim: 3
+          contype: 0
+          conaffinity: 1
+          solref: [0.008, 1.0]
+          friction: [0.6, 0.003, 0.001]

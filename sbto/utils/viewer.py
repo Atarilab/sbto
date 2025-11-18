@@ -22,6 +22,8 @@ def visualize_trajectory(
     - Right arrow: step forward
     - Left arrow: step backward
     """
+    t = np.squeeze(t)
+    x_traj = np.squeeze(x_traj)
     T = len(x_traj)
     PAUSE_LOOP = 0.5
     dt_array = np.diff(t, append=0.)
@@ -124,7 +126,7 @@ def render_and_save_trajectory(
         # Render frame
         if n_frames < (timestep * fps):
             n_frames += 1
-            renderer.update_scene(mj_data)
+            renderer.update_scene(mj_data, camera="track")
             frame = renderer.render()
             # Convert RGB to BGR for OpenCV and write
             frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)

@@ -1,0 +1,78 @@
+# Configuration for the G1Gait task
+# Path: conf/task/g1/gait.yaml
+
+_target_: sbto.tasks.g1.gait.G1Gait
+cfg:
+  _target_: sbto.tasks.g1.gait.ConfigG1Gait
+  
+  # === Desired motion parameters ===
+  v_des: [0.5, 0.0, 0.0]
+
+  # === Desired gait parameters ===
+  stance_ratio: [0.55, 0.55]
+  phase_offset: [0.5, 0.0]
+  nominal_period: 0.9
+
+  # === State costs ===
+  joint_pos_weight: 0.0
+  joint_pos_weight_terminal: 10.0
+
+  joint_vel_weight: 0.01
+  joint_vel_lower_mult: 0.1
+
+  # === Torso position cost ===
+  torso_height_weight: 1.0
+  torso_height_weight_terminal: 2000.0
+
+  # === Torso XY tracking cost ===
+  torso_xy_weight: 10.0
+  torso_xy_weight_terminal: 300.0
+
+  # === Torso linear velocity cost ===
+  torso_linvel_weight: [2.0, 2.0, 1.0]
+  torso_linvel_weight_terminal: [10.0, 10.0, 40.0]
+
+  # === Torso angular velocity cost ===
+  torso_angvel_weight: 1.0
+  torso_angvel_weight_terminal: 10.0
+
+  # === Torso orientation cost ===
+  torso_quat_weight: 0.01
+  torso_quat_weight_terminal: 50.0
+
+  # === Contact plan and cost ===
+  contact_weight: 10.0
+  contact_weight_term: 10.0
+  contact_force_weight: 1.0e-5
+
+  # === Control cost ===
+  u_weight_default: 1.0
+  u_weight_hip_knee_scale: 0.1
+  u_weight_upperbody_scale: 3.0
+  u_torques: 1.0e-5
+
+# === Rollout simulator ===
+sim:
+  _target_: sbto.sim.sim_mj_rollout.SimMjRollout
+  cfg:
+    _target_: sbto.sim.sim_mj_rollout.ConfigMjRollout
+    T: 200
+    Nknots: 15
+    keyframe_x0: knees_bent_wrist_yaw_90deg
+    interp_kind: quadratic
+    Nthread: 20
+    _chunk_size: 2
+  scaling:
+    _target_: sbto.sim.action_scaling.Scaling
+    name: nominal
+    clip: True
+
+  # === MuJoCo Scene ===
+  mj_scene:
+    _target_: sbto.sim.scene_mj.MjScene
+    cfg:
+      _target_: sbto.sim.scene_mj.ConfigMjScene
+      xml_scene_path: sbto/models/unitree_g1/scene_mjx_25dof_no_hands.xml
+      xml_sensors_path: sbto/models/unitree_g1/sensors/default.xml
+      xml_keyframes_path: sbto/models/unitree_g1/keyframes/g1_25dof.xml
+      xml_contact_pairs_path: sbto/models/unitree_g1/contact_pairs/minimal.xml

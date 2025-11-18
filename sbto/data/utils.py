@@ -2,11 +2,7 @@ import os
 import numpy as np
 from datetime import datetime
 import os
-from typing import List, Optional, Tuple
 import numpy as np
-from copy import copy
-
-from sbto.utils.config import ConfigBase
 
 EXP_DIR = "./datasets"
 TRAJ_FILENAME = "time_x_u_traj"
@@ -89,63 +85,3 @@ def load_trajectories(
         raise FileNotFoundError(f"{file_path} does not exist.")
     data = np.load(file_path)
     return data["time"], data["x"], data["u"]
-
-def sweep_param(
-    config: ConfigBase,
-    name: str,
-    range: Tuple,
-    num: int,
-    axis: int | tuple = 0,
-    logscale: bool = False
-    ) -> List[ConfigBase]:
-    """
-    Returns a list of config with the parameter values
-    swept over the desired range.
-    """
-    # Check param in in config
-    if not name in config.args:
-        raise ValueError(f"Parameter {name} not found.")
-    # Check param is float
-    param = config.args[name]
-    arr_param = np.asarray(param)
-
-    has_multiple_dim = np.sum(arr_param.shape) > 1
-    is_tuple = isinstance(param, tuple)
-    is_list = isinstance(param, list)
-    is_float = isinstance(param, float)
-    is_int = isinstance(param, int)
-    if not any((is_float, is_int, is_tuple, is_list)):
-        raise ValueError(f"Parameter {name} should be a float, an int or an iterable.")
-
-    start, stop = range
-    if not logscale:
-        sweep_values = np.linspace(start, stop, num, endpoint=True)
-    else:
-        sweep_values = np.logspace(start, stop, num, endpoint=True)
-
-    configs = []
-    for v in sweep_values:
-        cfg = copy(config)
-        if is_int:
-            v = int(v)
-        elif is_float:
-            v = float(v)
-        elif is_tuple:
-            if has_multiple_dim:
-                arr = arr_param.copy()
-                arr[axis] = v
-                v = tuple(arr.tolist())
-            else:
-                v = (v,)
-        elif is_list:
-            if has_multiple_dim:
-                arr = arr_param.copy()
-                arr[axis] = v
-                v = arr.tolist()
-            else:
-                v = [v]
-
-        cfg.__setattr__(name, v)
-        configs.append(cfg)
-    
-    return configs

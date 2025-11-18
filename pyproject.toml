@@ -20,6 +20,7 @@ dependencies = [
     "pyyaml",
     "matplotlib",
     "opencv-python",
+    "hydra-core>=1.3.2",
 ]
 
 [project.optional-dependencies]
