@@ -40,6 +40,9 @@ def _optimize(
 
     if not init_state_solver is None:
         solver.state = copy.deepcopy(init_state_solver)
+    
+    # If state warm started, min_cost is reset
+    solver.reset_min_cost()
 
     start = time.time()
     for _ in pbar:

@@ -77,6 +77,10 @@ class SamplingBasedSolver(ABC):
             min_cost=np.inf,
             min_cost_all=np.inf,
         )
+    
+    def reset_min_cost(self):
+        self.state.min_cost = np.inf
+        self.state.min_cost_all = np.inf
 
     def update_min_cost_best(
             self,
