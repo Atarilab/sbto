@@ -10,7 +10,7 @@ cfg:
 
   # === Object state goal ===
   time_lift:  0.2
-  time_after_place: 0.2
+  time_after_place: 0.0
 
   # === State costs ===
   joint_pos_weight: 0.05

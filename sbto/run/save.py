@@ -5,12 +5,15 @@ import os
 import shutil
 import numpy as np
 import numpy.typing as npt
+from dataclasses import asdict
+from typing import List
+import copy
 
 from sbto.tasks.task_mj import TaskMj
 from sbto.sim.sim_base import SimRolloutBase
 from sbto.sim.sim_mj_rollout import SimMjRollout
 from sbto.tasks.task_base import OCPBase
-from sbto.solvers.solver_base import SolverState
+from sbto.solvers.solver_base import SolverState, SamplingBasedSolver
 from sbto.utils.plotting import plot_contact_plan, plot_costs, plot_mean_cov, plot_state_control
 from sbto.utils.viewer import render_and_save_trajectory
 
@@ -21,6 +24,9 @@ TRAJ_FILENAME = "time_x_u_traj"
 ROLLOUT_FILENAME = "rollout_time_x_u_obs_traj"
 SOLVER_STATES_DIR = "./solver_states"
 ALL_SAMPLES_COSTS_FILENAME = "samples_costs"
+SOLVER_STATE_NAME = "solver_state"
+INITIAL_SOLVER_STATE_SUFFIX = "0"
+FINAL_SOLVER_STATE_SUFFIX = "final"
 HYDRA_CFG = ".hydra"
 
 def get_date_time() -> str:
@@ -80,15 +86,45 @@ def save_all_samples_and_cost(
         costs=costs,
     )
 
+def get_solver_state_path(dir_path: str, suffix: str) -> SolverState:
+    ext = "npz"
+    filename = f"{SOLVER_STATE_NAME}.{ext}"
+
+    if suffix:
+        filename = filename.replace(f".{ext}", f"_{suffix}.{ext}")
+    return filename
+
+
 def save_all_states(
     dir_path: str,
-    states
+    states: List[SolverState]
     ) -> None:
-    # Save all solver states
-    solver_state_dir = os.path.join(dir_path, SOLVER_STATES_DIR)
     for i, state in enumerate(states):
-        state.set_filename(f"solver_state_{i}.npz")
-        state.save(solver_state_dir)
+        save_solver_state(dir_path, state, str(i))
+
+def save_solver_state(
+    dir_path: str,
+    state: SolverState,
+    suffix: str = ""
+    ) -> None:
+    filename = get_solver_state_path(dir_path, suffix)
+    solver_state_file = os.path.join(dir_path, filename)
+    np.savez(solver_state_file, **asdict(state))
+
+def _get_state_from_rundir(dir_path: str, solver: SamplingBasedSolver, suffix: str) -> SolverState:
+    filename = get_solver_state_path(dir_path, suffix)
+    solver_state_file = os.path.join(dir_path, filename)
+    solver_state_0 = copy.deepcopy(solver.state)
+    data = np.load(solver_state_file)
+    for k, v in data.items():
+        setattr(solver_state_0, k, v)
+    return solver_state_0
+
+def get_initial_state_from_rundir(dir_path: str, solver: SamplingBasedSolver) -> SolverState:
+    return _get_state_from_rundir(dir_path, solver, INITIAL_SOLVER_STATE_SUFFIX)
+
+def get_final_state_from_rundir(dir_path: str, solver: SamplingBasedSolver) -> SolverState:
+    return _get_state_from_rundir(dir_path, solver, FINAL_SOLVER_STATE_SUFFIX)
 
 def save_plots(
     dir_path: str,
@@ -150,25 +186,34 @@ def copy_hydra_config(hydra_rundir: str, dst_path: str):
 def save_results(
     sim: SimMjRollout,
     task: OCPBase,
-    solver_state: SolverState,
+    solver_state_0: SolverState,
+    solver_state_final: SolverState,
     all_samples: Array,
     all_costs: Array,
     description: str = "",
     hydra_rundir: str = "",
     save_fig: bool = True,
+    multiple_shooting: bool = False,
     ) -> None:
     task_name = task.__class__.__name__
     result_dir = create_dirs(task_name, description)
 
-    print(f"[{description or 'Unnamed'}] Best cost: {solver_state.min_cost_all}")
+    print(f"[{description or 'Unnamed'}] Best cost: {solver_state_final.min_cost_all}")
 
-    best_knots = solver_state.best
+    best_knots = solver_state_final.best
     # Get best traj
-    t, x_traj, qdes_traj, obs_traj = map(np.squeeze, sim.rollout(best_knots, with_x0=True))
+    if multiple_shooting:
+        x_shooting = task.ref.x[sim.t_knots]
+        t, x_traj, qdes_traj, obs_traj = map(np.squeeze, sim.rollout_multiple_shooting(best_knots, x_shooting, with_x0=True))
+    else:
+        t, x_traj, qdes_traj, obs_traj = map(np.squeeze, sim.rollout(best_knots, with_x0=True))
 
     save_trajectories(result_dir, t, x_traj, qdes_traj)
     save_all_samples_and_cost(result_dir, all_samples, all_costs)
     copy_hydra_config(hydra_rundir, result_dir)
+    if solver_state_0:
+        save_solver_state(result_dir, solver_state_0, INITIAL_SOLVER_STATE_SUFFIX)
+    save_solver_state(result_dir, solver_state_final, FINAL_SOLVER_STATE_SUFFIX)
 
     if save_fig:
         save_plots(
@@ -179,8 +224,8 @@ def save_results(
             qdes_traj,
             obs_traj,
             best_knots,
-            solver_state.mean,
-            solver_state.cov,
+            solver_state_final.mean,
+            solver_state_final.cov,
             all_costs,
         )
         render_and_save_trajectory(

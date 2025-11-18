@@ -93,6 +93,7 @@ class SimMjRollout(SimRolloutBase):
         self.initial_states : Array = None
         self.state_rollout : Array = None
         self.sensordata_rollout : Array = None
+        self.initial_warmstart : Array = None
         self.N_allocated = -1
         self.T_allocated = -1
         # mujoco rollout variables
@@ -165,6 +166,7 @@ class SimMjRollout(SimRolloutBase):
                         self.initial_states,
                         control=u_traj,
                         nstep=T,
+                        initial_warmstart=self.initial_warmstart,
                         state=self.state_rollout,
                         sensordata=self.sensordata_rollout, 
                         skip_checks=True,
@@ -187,3 +189,47 @@ class SimMjRollout(SimRolloutBase):
             u_traj,
             self.sensordata_rollout
         )
+    
+    def rollout_multiple_shooting(self, u_knots : Array, x_shooting: Array, with_x0: bool = False) -> Tuple[Array, Array, Array]:
+        """
+        Rollout the dynamics with the given control knots u_knots [-1, Nknots, Nu].
+        Interpolate and rescale the knots to the desired joint range.
+        """
+        u_knots = u_knots.reshape(-1, self.Nknots, self.Nu)
+        if self.scaling:
+            u_knots = self.scaling(u_knots)
+        u_traj = self.interpolate(u_knots)
+        
+        t_full = []
+        x_full = []
+        u_full = []
+        obs_full = []
+
+        for t_start, t_end, x_start in zip(self.t_knots[:-1], self.t_knots[1:], x_shooting):
+            # Reset initial state and data
+            self.T_allocated = -1
+            self.set_initial_state(x_start)
+
+            if len(t_full) > 0:
+                with_x0 = False
+
+            t, x, u, obs = self._rollout_dynamics(u_traj[:, t_start: t_end, :], with_x0)
+
+            t_full.append(t + t_start * self.mj_scene.dt)
+            x_full.append(x)
+            u_full.append(u)
+            obs_full.append(obs)
+            
+            self.initial_warmstart = np.tile(self.mj_datas[0].qacc_warmstart, (self.N_allocated, 1))
+
+        t_full = np.concatenate(t_full, axis=1)
+        x_full = np.concatenate(x_full, axis=1)
+        u_full = np.concatenate(u_full, axis=1)
+        obs_full = np.concatenate(obs_full, axis=1)
+
+        self.set_initial_state(x_shooting[0])
+        self.T_allocated = -1
+        self.initial_warmstart = None
+        
+        return t_full, x_full, u_full, obs_full
+        

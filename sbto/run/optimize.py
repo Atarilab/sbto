@@ -3,7 +3,7 @@ import copy
 import numpy as np
 import numpy.typing as npt
 from tqdm import trange
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Any
 
 from sbto.sim.sim_base import SimRolloutBase
 from sbto.tasks.task_base import OCPBase
@@ -18,11 +18,20 @@ def compute_cost(
     ):
     return task.cost(*sim.rollout(u_knots)[1:])
 
-def optimize_single_shooting(
+def compute_cost_multiple_shooting(
+    u_knots,
+    sim: SimRolloutBase,
+    task: OCPBase,
+    ):
+    x_shooting = task.ref.x[sim.t_knots]
+    return task.cost(*sim.rollout_multiple_shooting(u_knots, x_shooting)[1:])
+
+def _optimize(
     sim: SimRolloutBase,
     task: OCPBase,
     solver: SamplingBasedSolver,
-    init_state_solver: Optional[SolverState] = None 
+    compute_cost_fn: Any,
+    init_state_solver: Optional[SolverState] = None,
     ) -> Tuple[SolverState, Array, Array]:
     all_costs = []
     all_samples = []
@@ -35,7 +44,7 @@ def optimize_single_shooting(
     start = time.time()
     for _ in pbar:
         samples = solver.get_samples()
-        costs = compute_cost(samples, sim, task)
+        costs = compute_cost_fn(samples, sim, task)
         solver.update(samples, costs)
 
         all_samples.append(samples)
@@ -53,3 +62,31 @@ def optimize_single_shooting(
     last_solver_state = copy.deepcopy(solver.state)
 
     return last_solver_state, all_samples_arr, all_costs_arr
+
+def optimize_single_shooting(
+    sim: SimRolloutBase,
+    task: OCPBase,
+    solver: SamplingBasedSolver,
+    init_state_solver: Optional[SolverState] = None 
+    ) -> Tuple[SolverState, Array, Array]:
+    return _optimize(
+        sim,
+        task,
+        solver,
+        compute_cost,
+        init_state_solver, 
+    )
+
+def optimize_mutiple_shooting(
+    sim: SimRolloutBase,
+    task: OCPBase,
+    solver: SamplingBasedSolver,
+    init_state_solver: Optional[SolverState] = None 
+    ) -> Tuple[SolverState, Array, Array]:
+    return _optimize(
+        sim,
+        task,
+        solver,
+        compute_cost_multiple_shooting,
+        init_state_solver,
+    )

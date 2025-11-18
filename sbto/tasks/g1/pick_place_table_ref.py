@@ -144,7 +144,7 @@ class G1PickPlaceTableRef(TaskMjRef):
         self.contact_plan[:, 1] = 1
         # For the object, lift and place time
         node_lift = int(cfg.time_lift / dt)
-        node_place = int(duration - cfg.time_after_place / dt)
+        node_place = int((duration - cfg.time_after_place) / dt)
         self.contact_plan[:, 2] = 1
         self.contact_plan[node_lift:node_place, 2] = 0
 
