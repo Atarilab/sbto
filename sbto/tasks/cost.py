@@ -32,23 +32,26 @@ def quaternion_dist_nb(var, ref, weights):
     """
     Numba-accelerated version of quaternion distance cost.
     Shapes:
-        var: (N, T, 4)       # quaternion rollout
-        ref: (T, 4)          # reference quaternion trajectory
+        var: (N, T, Nquat*4)       # quaternion rollout
+        ref: (T, Nquat*4)          # reference quaternion trajectory
         weights: (T, 1) or (T,)  # scalar weights per timestep
     Returns:
         cost: (N,)
     """
     N, T, Q = var.shape
     result = np.empty(N, dtype=np.float64)
+    QUAT_SIZE = 4
+    Nquat = Q // QUAT_SIZE
 
     for n in prange(N):
         total = 0.0
         for t in range(T):
-            dot = 0.0
-            for k in range(Q):
-                dot += var[n, t, k] * ref[t, k]
-            diff = 1.0 - dot * dot
-            total += weights[t, 0] * diff
+            for iquat in range(Nquat):
+                dot = 0.0
+                for k in range(iquat * QUAT_SIZE, (iquat+1) * QUAT_SIZE):
+                    dot += var[n, t, k] * ref[t, k]
+                diff = 1.0 - dot * dot
+                total += weights[t, 0] * diff
         result[n] = total
     return result
 
