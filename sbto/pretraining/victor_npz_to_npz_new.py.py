@@ -1,20 +1,39 @@
-from typing import Any
-
 import numpy as np
 import torch
+import torch.nn as nn
+from torch.utils.data import Dataset, DataLoader
+from rsl_rl.networks import MLP, EmpiricalNormalization
 import tyro
 from tqdm import tqdm
 
-from mjlab.entity import Entity
-from mjlab.scene import Scene
-from mjlab.sim.sim import Simulation, SimulationCfg
-from mjlab.tasks.tracking.config.g1.flat_env_cfg import G1FlatEnvCfg
-from mjlab.third_party.isaaclab.isaaclab.utils.math import (
-    axis_angle_from_quat,
-    quat_apply_inverse,
-    quat_conjugate,
-    quat_mul,
-)
+
+try:
+    import mujoco_warp  
+except Exception:
+    raise RuntimeError(
+        "mujoco_warp is required to RUN the conversion, "
+        "but your PRETRAINING does not need it. "
+        "Run the conversion on the cluster only."
+    )
+
+try:
+    from mjlab.entity import Entity
+    from mjlab.scene import Scene
+    from mjlab.sim.sim import Simulation, SimulationCfg
+    from mjlab.tasks.tracking.config.g1.flat_env_cfg import G1FlatEnvCfg
+    from mjlab.third_party.isaaclab.isaaclab.utils.math import (
+        axis_angle_from_quat,
+        quat_apply_inverse,
+        quat_conjugate,
+        quat_mul,
+    )
+except Exception:
+    raise RuntimeError(
+        "MJLAB is not installed correctly. "
+        "Make sure you ran: pip install -e . inside the mjlab folder."
+    )
+
+
 
 
 def _normalize_quat(q: torch.Tensor) -> torch.Tensor:
@@ -25,7 +44,7 @@ def _normalize_quat(q: torch.Tensor) -> torch.Tensor:
 class TrajectoryNpzSimLoader:
     """Loads a single trajectory from your NPZ and resamples it to a fixed FPS.
 
-    Expected NPZ format (your sbto file):
+    Expected NPZ format 
 
       time            : (T,) or (N, T)          float32
       base_xyz_quat   : (N, T, 7) or (T, 7)     [x, y, z, qw, qx, qy, qz]
@@ -141,7 +160,7 @@ class TrajectoryNpzSimLoader:
               f"input_fps≈{self.input_fps}")
 
     # -------------------------------------------------------------------------
-    # 2) Resample to desired FPS using time stamps
+    #Resample to desired FPS using time stamps
     # -------------------------------------------------------------------------
     def _resample_to_output_fps_using_times(self) -> None:
         if self.input_frames <= 1:
@@ -197,9 +216,7 @@ class TrajectoryNpzSimLoader:
             blend.unsqueeze(1),
         )
 
-    # -------------------------------------------------------------------------
-    # 3) Optionally repeat last frame
-    # -------------------------------------------------------------------------
+
     def _repeat_last_frame(self) -> None:
         if self.repeat_last_frame <= 0:
             return
@@ -215,7 +232,7 @@ class TrajectoryNpzSimLoader:
         self.output_frames += self.repeat_last_frame
 
     # -------------------------------------------------------------------------
-    # 4) Compute base and joint velocities from resampled positions
+    # base and joint velocities from resampled positions
     # -------------------------------------------------------------------------
     def _compute_velocities_from_resampled(self) -> None:
         # Linear vel from pos derivative and angular vel from quaternion finite diff
@@ -274,7 +291,7 @@ def convert(
     traj_index: int = 0,
     repeat_last_frame: int = 0,
 ):
-    """Convert your sbto NPZ to a mjlab motion.npz using the G1FlatEnv scene.
+    """Convert  sbto NPZ to a mjlab motion.npz using the G1FlatEnv scene.
 
     Output keys:
       fps               : [int]
@@ -378,6 +395,19 @@ def convert(
         "body_ang_vel_w",
     ):
         log[k] = np.stack(log[k], axis=0)
+        
+    # === Add anchors using robot base (pelvis) trajectory ===
+
+    root_idx = 0
+
+    log["anchor_pos_b"] = log["body_pos_w"][:, root_idx]            # (T, 3)
+    log["anchor_quat"] = log["body_quat_w"][:, root_idx]          # (T, 4)
+   
+
+    print("\nAnchor fields added:")
+    print("  anchor_pos:", log["anchor_pos"].shape)
+    print("  anchor_quat:", log["anchor_quat"].shape)
+   
 
     np.savez(output_file, **log)  # type: ignore[arg-type]
     print(f"\nSaved mjlab motion to: {output_file}")
