@@ -12,7 +12,7 @@ Array = npt.NDArray[np.float64]
 IntArray = npt.NDArray[np.int64]
 CostFn: TypeAlias = Callable[[Tuple[Array, Array, Array]], float]
 
-class OCPCostDecay(OCPBase):
+class OCPCostMod(OCPBase):
     def __init__(self, T: int):
         super().__init__(T)
         # Nuber of timesteps
@@ -24,7 +24,7 @@ class OCPCostDecay(OCPBase):
 
         self.decay = np.ones(T)
 
-    def update_decay(self, decay):
+    def update_mod(self, decay):
         self.decay = decay
 
     def _add_cost(self,

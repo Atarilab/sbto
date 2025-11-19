@@ -200,7 +200,7 @@ def save_results(
 
     print(f"[{description or 'Unnamed'}] Best cost: {solver_state_final.min_cost_all}")
 
-    best_knots = solver_state_final.best
+    best_knots = solver_state_final.best_all
     # Get best traj
     if multiple_shooting:
         x_shooting = task.ref.x[sim.t_knots]

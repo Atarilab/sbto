@@ -28,7 +28,7 @@ def quadratic_cost_nb(var, ref, weight):
     return result
     
 @njit(parallel=True, fastmath=True, cache=True)
-def quadratic_cost_nb_decay(var, ref, weight, decay):
+def quadratic_cost_nb_mod(var, ref, weight, decay):
     N, T, I = var.shape
     result = np.empty(N, np.float64)
     for n in prange(N):
@@ -69,7 +69,7 @@ def quaternion_dist_nb(var, ref, weights):
     return result
 
 @njit(parallel=True, fastmath=True, cache=True)
-def quaternion_dist_nb_decay(var, ref, weights, decay):
+def quaternion_dist_nb_mod(var, ref, weights, decay):
     """
     Numba-accelerated version of quaternion distance cost.
     Shapes:
@@ -128,7 +128,7 @@ def hamming_dist_nb(cnt_rollout, cnt_plan, weights):
 
 
 @njit(parallel=True, fastmath=True, cache=True)
-def hamming_dist_nb_decay(cnt_rollout, cnt_plan, weights, decay):
+def hamming_dist_nb_mod(cnt_rollout, cnt_plan, weights, decay):
     """
     Efficient Hamming-distance-based contact cost.
     Args:

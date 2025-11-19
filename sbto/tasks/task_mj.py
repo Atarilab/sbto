@@ -5,9 +5,9 @@ from typing import Tuple, Union, Optional, List
 from sbto.sim.sim_mj_rollout import SimMjRollout
 from sbto.sim.scene_mj import MjScene
 from sbto.tasks.task_base import OCPBase, Array, CostFn, IntArray
-from sbto.tasks.task_base_cost_decay import OCPCostDecay
+from sbto.tasks.task_base_cost_mod import OCPCostMod
 
-class TaskMj(OCPCostDecay):
+class TaskMj(OCPCostMod):
     def __init__(self, sim: SimMjRollout):
         super().__init__(sim.T)
         self.mj_scene : MjScene = sim.mj_scene

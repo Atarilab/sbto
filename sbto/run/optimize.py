@@ -91,9 +91,9 @@ def optimize_mutiple_shooting(
         init_state_solver,
     )
 
-from utils.decay import beta_decay, step_decay, step_mpc_decay
+from sbto.utils.modulation import beta_mod, step_mod, mpc_mod, step_decayed_mod
 
-def optimize_with_decay(
+def optimize_with_mod(
     sim: SimRolloutBase,
     task: OCPBase,
     solver: SamplingBasedSolver,
@@ -107,15 +107,15 @@ def optimize_with_decay(
     if not init_state_solver is None:
         solver.state = copy.deepcopy(init_state_solver)
 
-    N_it_full = 25
-    decay_fn = step_decay
+    N_it_full = 150
+    mod_fn = step_mod
 
     start = time.time()
     for it in pbar:
-        # decay = beta_decay(it, solver.cfg.N_it, sim.T, b_start=1.25)
-        decay = decay_fn(it, solver.cfg.N_it, sim.T, Nknots=sim.Nknots)
-        task.update_decay(decay)
-        solver.update_decay(decay[sim.t_knots])
+        # decay = beta_mod(it, solver.cfg.N_it, sim.T, b_start=1.25)
+        decay = mod_fn(it, solver.cfg.N_it, sim.T, Nknots=sim.Nknots)
+        task.update_mod(decay)
+        solver.update_mod(decay[sim.t_knots])
 
         samples = solver.get_samples()
         costs = compute_cost(samples, sim, task)
@@ -125,18 +125,23 @@ def optimize_with_decay(
         all_costs.append(costs)
 
         pbar_postfix["min_cost"] = solver.state.min_cost_all
+        pbar_postfix["cost"] = solver.state.min_cost
+
         pbar.set_postfix(pbar_postfix)
 
 
     if N_it_full > 0:
+        solver.state.min_cost_all=np.inf
+        solver.state.best_all=np.empty_like(solver.state.mean)
+
         pbar = trange(N_it_full, desc="Optimizing full traj", leave=True)
         pbar_postfix = {}
 
         # Optimizing full cost
         decay = np.ones(sim.T)
         for it in pbar:
-            task.update_decay(decay)
-            solver.update_decay(decay[sim.t_knots])
+            task.update_mod(decay)
+            solver.update_mod(decay[sim.t_knots])
 
             samples = solver.get_samples()
             costs = compute_cost(samples, sim, task)
@@ -146,6 +151,7 @@ def optimize_with_decay(
             all_costs.append(costs)
 
             pbar_postfix["min_cost"] = solver.state.min_cost_all
+            pbar_postfix["cost"] = solver.state.min_cost
             pbar.set_postfix(pbar_postfix)
 
     end = time.time()

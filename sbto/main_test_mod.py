@@ -8,7 +8,7 @@ from sbto.sim.sim_base import SimRolloutBase
 from sbto.tasks.task_base import OCPBase
 from sbto.tasks.task_mj_ref import TaskMjRef
 from sbto.solvers.solver_base import SamplingBasedSolver, SolverState
-from sbto.run.optimize import optimize_single_shooting, optimize_mutiple_shooting, optimize_with_decay
+from sbto.run.optimize import optimize_single_shooting, optimize_mutiple_shooting, optimize_with_mod
 from sbto.run.save import save_results, get_final_state_from_rundir
 
 def optimize_and_save_data(
@@ -29,7 +29,7 @@ def optimize_and_save_data(
         solver_state_0 = copy.deepcopy(solver.state)
 
     # Single shooting with decay on cost
-    optimizer_fn = optimize_with_decay
+    optimizer_fn = optimize_with_mod
     
     solver_state_final, all_samples, all_costs = optimizer_fn(
         sim,

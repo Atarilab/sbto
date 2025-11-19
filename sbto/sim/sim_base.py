@@ -2,7 +2,7 @@ import numpy as np
 import numpy.typing as npt
 from abc import ABC, abstractmethod
 from typing import Any, Tuple, Callable, Optional
-from scipy.interpolate import interp1d
+from scipy.interpolate import interp1d, PchipInterpolator
 from functools import partial
 
 from sbto.sim.action_scaling import Scaling
@@ -81,17 +81,26 @@ class SimRolloutBase(ABC):
         interpolate u_knots [-1, Nknots, Nu] in an array of shape [-1, T, Nu]
         """
         self._check_u_knots_shape(u_knots)
-        # Interpolate along each column
-        f = interp1d(
-            self.t_knots,
-            u_knots,
-            kind=self.interp_kind,
-            copy=False,
-            bounds_error=False,
-            assume_sorted=True,
-            axis=-2,
+
+        if self.interp_kind == "pchip":
+            f = PchipInterpolator(
+                self.t_knots,
+                u_knots,
+                axis=-2,
+                extrapolate=False
             )
 
+        else:
+            # Interpolate along each column
+            f = interp1d(
+                self.t_knots,
+                u_knots,
+                kind=self.interp_kind,
+                copy=False,
+                bounds_error=False,
+                assume_sorted=True,
+                axis=-2,
+                )
         return f(self.t_all)
     
     def rollout(self, u_knots : Array, with_x0: bool = False) -> Tuple[Array, Array, Array]:
