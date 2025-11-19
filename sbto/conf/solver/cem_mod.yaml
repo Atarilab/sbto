@@ -1,9 +1,10 @@
-_target_: sbto.solvers.cem_decay.CEMDecay
+_target_: sbto.solvers.cem_mod.CEMMod
 cfg:
-  _target_: sbto.solvers.cem_decay.ConfigCEM
+  _target_: sbto.solvers.cem_mod.ConfigCEMMod
   N_samples: 1024
   N_it: 100
   elite_frac: 0.05
+  keep_frac: 0.2
   alpha_mean: 0.95
   alpha_cov: 0.15
   std_incr: 0.

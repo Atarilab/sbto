@@ -23,6 +23,7 @@ class SolverState():
     mean: Array
     cov: Array
     best: Array
+    best_all: Array
     min_cost: float
     min_cost_all: float
 
@@ -68,12 +69,12 @@ class SamplingBasedSolver(ABC):
             mean = np.zeros(self.D)
         if cov is None:
             cov = np.eye(self.D) * self.cfg.sigma0**2
-        best = np.empty_like(mean)
 
         return SolverState(
             mean=mean,
             cov=cov,
-            best=best,
+            best=np.empty_like(mean),
+            best_all=np.empty_like(mean),
             min_cost=np.inf,
             min_cost_all=np.inf,
         )
@@ -88,8 +89,9 @@ class SamplingBasedSolver(ABC):
         Update solver state's min_cost and best sample inplace.
         """
         state.min_cost=float(min_cost_rollout)
+        state.best = best
         if min_cost_rollout < state.min_cost_all:
-            state.best = best
+            state.best_all = best
             state.min_cost_all=float(min_cost_rollout)
 
     def get_samples(self) -> Array:
