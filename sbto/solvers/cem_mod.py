@@ -34,9 +34,10 @@ class CEMMod(SamplingBasedSolver):
         # small diagonal regularization for covariance
         self.Id = np.diag(np.full(self.D, cfg.std_incr))
         self.reg_cov = cfg.std_incr > 0.
-
-        self.elites_hist = np.empty((self.N_keep, D))
-        self.costs_hist = np.empty((self.N_keep,))
+        
+        self.first_it = True
+        if self.N_keep > 0:
+            self.samples = np.empty((cfg.N_samples, D))
     
     def update_mod(self, decay_t_knots: Array):
         Nknots = len(decay_t_knots)
@@ -54,6 +55,19 @@ class CEMMod(SamplingBasedSolver):
             self.alpha_cov += np.diag(decay_knots[k:] * (self.cfg.alpha_cov-std_min), -k)
         self.alpha_cov = np.round(self.alpha_cov, 3)
 
+    def get_samples(self) -> Array:
+        """
+        Get samples from distribution parametrized
+        by the current state.
+        """
+        samples = super().get_samples()
+
+        if self.N_keep > 0 and not self.first_it:
+            self.samples[self.N_keep:] = samples[:-self.N_keep]
+            return self.samples
+        else:
+            return samples
+        
     def get_elites(self, samples: Array, costs: Array) -> Tuple[Array, IntArray]:
         """
         Returns (elites, elite_idx)
@@ -62,25 +76,6 @@ class CEMMod(SamplingBasedSolver):
         elites_idx = elites_idx[np.argsort(costs[elites_idx])]
 
         elites = samples[elites_idx]
-        return elites, elites_idx
-    
-    def get_elites_with_hist(self, samples: Array, costs: Array) -> Tuple[Array, IntArray]:
-        """
-        Returns (elites, elite_idx) and stores the top N_keep elites in elites_hist.
-        """
-        # Get indices of N_elite lowest-cost samples
-        all_costs = np.concatenate((self.costs_hist, costs), axis=0)
-        all_samples = np.concatenate((self.elites_hist, samples), axis=0)
-        elites_idx = np.argpartition(all_costs, self.N_elite)[:self.N_elite]
-        elites_idx = elites_idx[np.argsort(costs[elites_idx])]
-        elites = all_samples[elites_idx]
-
-        # ---- Add elite history saving ----
-        # Select top N_keep among these elites
-        keep_idx = elites_idx[:self.N_keep]
-        self.elites_hist[:] = all_samples[keep_idx]
-        self.costs_hist[:] = all_costs[keep_idx]
-
         return elites, elites_idx
     
     def update_distrib_param(self, state: SolverState, elites: Array) -> None:
@@ -98,13 +93,15 @@ class CEMMod(SamplingBasedSolver):
         """
         Update the solver state from elite samples.
         """
+        elites, elites_idx = self.get_elites(samples, costs)
         if self.N_keep > 0:
-            elites, elites_idx = self.get_elites_with_hist(samples, costs)
-        else:
-            elites, elites_idx = self.get_elites(samples, costs)
-        self.update_distrib_param(self.state, elites)
+            keep_idx = elites_idx[:self.N_keep]
+            self.samples[:self.N_keep] = samples[keep_idx]
 
         arg_min = elites_idx[0]
         best = samples[arg_min]
         min_cost = costs[arg_min]
         self.update_min_cost_best(self.state, min_cost, best)
+
+        self.update_distrib_param(self.state, elites)
+        self.first_it = False
