@@ -36,12 +36,17 @@ def plot_state_control(
     t_knots = np.linspace(start, end, Nknots, endpoint=True)
 
     # Extract components
+    with_obj = Nq - Nu > 7
+
     base_pos = x_traj[:, 0:3]
     base_vel = v_traj[:, :3]
     base_w = v_traj[:, 3:6]
-    joint_pos = x_traj[:, -Nu:]
-    joint_vel = v_traj[:, -Nu:]
-
+    if not with_obj:
+        joint_pos = x_traj[:, -Nu:]
+        joint_vel = v_traj[:, -Nu:]
+    else:
+        joint_pos = x_traj[:, -Nu-7:-7]
+        joint_vel = v_traj[:, -Nu-6:-6]
     # ---------------- FIGURE 1: Base ----------------
     fig1, axs1 = plt.subplots(3, 1, figsize=(10, 6), sharex=True)
     fig1.suptitle(f"{title_prefix} - Base States")
