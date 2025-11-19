@@ -91,7 +91,7 @@ def optimize_mutiple_shooting(
         init_state_solver,
     )
 
-from utils.decay import beta_decay, step_decay
+from utils.decay import beta_decay, step_decay, step_mpc_decay
 
 def optimize_with_decay(
     sim: SimRolloutBase,
@@ -101,16 +101,19 @@ def optimize_with_decay(
     ) -> Tuple[SolverState, Array, Array]:
     all_costs = []
     all_samples = []
-    pbar = trange(solver.cfg.N_it, desc="Optimizing", leave=True)
+    pbar = trange(solver.cfg.N_it, desc="Optimizing w. cost modulation", leave=True)
     pbar_postfix = {}
 
     if not init_state_solver is None:
         solver.state = copy.deepcopy(init_state_solver)
 
+    N_it_full = 25
+    decay_fn = step_decay
+
     start = time.time()
     for it in pbar:
         # decay = beta_decay(it, solver.cfg.N_it, sim.T, b_start=1.25)
-        decay = step_decay(it, solver.cfg.N_it, sim.T, Nknots=sim.Nknots)
+        decay = decay_fn(it, solver.cfg.N_it, sim.T, Nknots=sim.Nknots)
         task.update_decay(decay)
         solver.update_decay(decay[sim.t_knots])
 
@@ -123,6 +126,27 @@ def optimize_with_decay(
 
         pbar_postfix["min_cost"] = solver.state.min_cost_all
         pbar.set_postfix(pbar_postfix)
+
+
+    if N_it_full > 0:
+        pbar = trange(N_it_full, desc="Optimizing full traj", leave=True)
+        pbar_postfix = {}
+
+        # Optimizing full cost
+        decay = np.ones(sim.T)
+        for it in pbar:
+            task.update_decay(decay)
+            solver.update_decay(decay[sim.t_knots])
+
+            samples = solver.get_samples()
+            costs = compute_cost(samples, sim, task)
+            solver.update(samples, costs)
+
+            all_samples.append(samples)
+            all_costs.append(costs)
+
+            pbar_postfix["min_cost"] = solver.state.min_cost_all
+            pbar.set_postfix(pbar_postfix)
 
     end = time.time()
     duration = end - start
