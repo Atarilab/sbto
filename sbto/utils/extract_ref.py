@@ -4,7 +4,7 @@ import numpy as np
 from scipy.interpolate import interp1d
 from typing import List
 
-from sbto.utils.finite_diff import finite_diff_qpos_traj, finite_diff_quat_traj
+from sbto.utils.finite_diff import finite_diff_qpos_traj_high_order, finite_diff_quat_traj
 
 def compute_time_from_fps(fps, N):
     return np.arange(N) / fps
@@ -79,12 +79,12 @@ def interpolate_data(data, dt: float):
 
 def compute_vel_from_pos(data, dt: float):
     if "object_rot" in data and "object_root_pos" in data:
-        data["object_v"] = finite_diff_qpos_traj(data["object_root_pos"], dt)
+        data["object_v"] = finite_diff_qpos_traj_high_order(data["object_root_pos"], dt)
         data["object_w"] = finite_diff_quat_traj(data["object_rot"], dt)
     
-    data["root_v"] = finite_diff_qpos_traj(data["root_pos"], dt)
+    data["root_v"] = finite_diff_qpos_traj_high_order(data["root_pos"], dt)
     data["root_w"] = finite_diff_quat_traj(data["root_rot"], dt)
-    data["dof_v"] = finite_diff_qpos_traj(data["dof_pos"], dt)
+    data["dof_v"] = finite_diff_qpos_traj_high_order(data["dof_pos"], dt)
 
     return data
 
@@ -144,12 +144,14 @@ def load_reference(
     data["time"] = compute_time_from_fps(data["fps"] * speedup, N)
 
     mj_model = mujoco.MjModel.from_xml_path(xml_path)
+    dt_data = 1. / (data["fps"] * speedup)
+    data = compute_vel_from_pos(data, dt_data)
+    print(data.keys())
 
     dt_interp = mj_model.opt.timestep
     if dt_interp > 0:
         data = interpolate_data(data, dt_interp)
 
-    data = compute_vel_from_pos(data, dt_interp)
 
     if z_offset != 0:
         data["root_pos"][:, 2] -= z_offset
