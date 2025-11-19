@@ -26,6 +26,19 @@ def quadratic_cost_nb(var, ref, weight):
                 total += weight[t, i] * diff * diff
         result[n] = total
     return result
+    
+@njit(parallel=True, fastmath=True, cache=True)
+def quadratic_cost_nb_decay(var, ref, weight, decay):
+    N, T, I = var.shape
+    result = np.empty(N, np.float64)
+    for n in prange(N):
+        total = 0.0
+        for t in range(T):
+            for i in range(I):
+                diff = var[n, t, i] - ref[t, i]
+                total += weight[t, i] * diff * diff * decay[t]
+        result[n] = total
+    return result
 
 @njit(parallel=True, fastmath=True, cache=True)
 def quaternion_dist_nb(var, ref, weights):
@@ -56,6 +69,35 @@ def quaternion_dist_nb(var, ref, weights):
     return result
 
 @njit(parallel=True, fastmath=True, cache=True)
+def quaternion_dist_nb_decay(var, ref, weights, decay):
+    """
+    Numba-accelerated version of quaternion distance cost.
+    Shapes:
+        var: (N, T, Nquat*4)       # quaternion rollout
+        ref: (T, Nquat*4)          # reference quaternion trajectory
+        weights: (T, 1) or (T,)  # scalar weights per timestep
+        decay              : (T) array of float32 weights
+    Returns:
+        cost: (N,)
+    """
+    N, T, Q = var.shape
+    result = np.empty(N, dtype=np.float64)
+    QUAT_SIZE = 4
+    Nquat = Q // QUAT_SIZE
+
+    for n in prange(N):
+        total = 0.0
+        for t in range(T):
+            for iquat in range(Nquat):
+                dot = 0.0
+                for k in range(iquat * QUAT_SIZE, (iquat+1) * QUAT_SIZE):
+                    dot += var[n, t, k] * ref[t, k]
+                diff = 1.0 - dot * dot
+                total += weights[t, 0] * diff * decay[t]
+        result[n] = total
+    return result
+
+@njit(parallel=True, fastmath=True, cache=True)
 def hamming_dist_nb(cnt_rollout, cnt_plan, weights):
     """
     Efficient Hamming-distance-based contact cost.
@@ -63,6 +105,7 @@ def hamming_dist_nb(cnt_rollout, cnt_plan, weights):
         cnt_rollout : (N, T, C) array, contact states (0, 1, maybe >1)
         cnt_plan           : (T, C) array, desired contact pattern (0 or 1)
         weights            : (T, C) array of float32 weights
+
     Returns:
         cost : (N,) array of float32
     """
@@ -80,5 +123,35 @@ def hamming_dist_nb(cnt_rollout, cnt_plan, weights):
                 # XOR trick for mismatch detection (works with ints 0/1)
                 diff = int(s) ^ int(cnt_plan[t, c])
                 total += weights[t, c] * diff
+        result[n] = total
+    return result
+
+
+@njit(parallel=True, fastmath=True, cache=True)
+def hamming_dist_nb_decay(cnt_rollout, cnt_plan, weights, decay):
+    """
+    Efficient Hamming-distance-based contact cost.
+    Args:
+        cnt_rollout : (N, T, C) array, contact states (0, 1, maybe >1)
+        cnt_plan           : (T, C) array, desired contact pattern (0 or 1)
+        weights            : (T, C) array of float32 weights
+        decay              : (T) array of float32 weights
+    Returns:
+        cost : (N,) array of float32
+    """
+    N, T, C = cnt_rollout.shape
+    result = np.empty(N, dtype=np.float64)
+
+    for n in prange(N):
+        total = 0.0
+        for t in range(T):
+            for c in range(C):
+                s = cnt_rollout[n, t, c]
+                # Clamp contact status > 1 to 1, cast to integer
+                if s > 1:
+                    s = 1
+                # XOR trick for mismatch detection (works with ints 0/1)
+                diff = int(s) ^ int(cnt_plan[t, c])
+                total += weights[t, c] * diff * decay[t]
         result[n] = total
     return result

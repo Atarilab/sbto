@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import sbto.tasks.g1.constants as G1
 from sbto.sim.sim_mj_rollout import SimMjRollout
 from sbto.tasks.task_mj_ref import TaskMjRef
-from sbto.tasks.cost import quadratic_cost_nb, quaternion_dist_nb, hamming_dist_nb
+from sbto.tasks.cost import quadratic_cost_nb_decay, quaternion_dist_nb_decay, hamming_dist_nb_decay
 
 @dataclass
 class ConfigG1PickPlaceTableRef():
@@ -76,48 +76,48 @@ class G1PickPlaceTableRef(TaskMjRef):
         # --- G1 costs ---
         self.add_state_cost_from_ref(
             "joint_ref",
-            quadratic_cost_nb,
+            quadratic_cost_nb_decay,
             sim.mj_scene.act_qposadr,
             weights=cfg.joint_pos_weight,
             weights_terminal=cfg.joint_pos_weight,
         )
         self.add_state_cost_from_ref(
             "base_position",
-            quadratic_cost_nb,
+            quadratic_cost_nb_decay,
             [0, 1, 2],
             weights=cfg.base_pos_weight,
             weights_terminal=cfg.base_pos_weight,
         )
         self.add_state_cost_from_ref(
             "joint_vel",
-            quadratic_cost_nb,
+            quadratic_cost_nb_decay,
             sim.mj_scene.act_vel_adr,
             weights=cfg.joint_vel_weight,
             weights_terminal=cfg.joint_vel_weight,
         )
         self.add_sensor_cost_from_ref(
             G1.Sensors.TORSO_POS,
-            quadratic_cost_nb,
+            quadratic_cost_nb_decay,
             weights=cfg.torso_pos_weight,
             weights_terminal=cfg.torso_pos_weight,
         )
         self.add_sensor_cost_from_ref(
             G1.Sensors.TORSO_QUAT,
-            quaternion_dist_nb,
+            quaternion_dist_nb_decay,
             weights=cfg.torso_quat_weight,
             weights_terminal=cfg.torso_quat_weight_terminal,
         )
         # --- Obj cost ---
         self.add_state_cost_from_ref(
             "obj_position",
-            quadratic_cost_nb,
+            quadratic_cost_nb_decay,
             sim.mj_scene.obj_pos_adr,
             weights=cfg.obj_pos_weight,
             weights_terminal=cfg.obj_pos_weight,
         )
         self.add_state_cost_from_ref(
             "obj_quat",
-            quaternion_dist_nb,
+            quaternion_dist_nb_decay,
             sim.mj_scene.obj_quat_adr,
             weights=cfg.obj_quat_weight,
             weights_terminal=cfg.obj_quat_weight,
@@ -125,13 +125,13 @@ class G1PickPlaceTableRef(TaskMjRef):
         # Hand position
         self.add_sensor_cost_from_ref(
             G1.Sensors.HAND_POS,
-            quadratic_cost_nb,
+            quadratic_cost_nb_decay,
             weights=cfg.hand_position,
         )
         # Hand orientation
         self.add_sensor_cost_from_ref(
             G1.Sensors.HAND_QUAT,
-            quaternion_dist_nb,
+            quaternion_dist_nb_decay,
             weights=cfg.hand_orientation,
         )
 
@@ -150,14 +150,14 @@ class G1PickPlaceTableRef(TaskMjRef):
 
         self.add_sensor_cost(
             G1.Sensors.HAND_CONTACTS,
-            hamming_dist_nb,
+            hamming_dist_nb_decay,
             sub_idx_sensor=G1.Sensors.id_cnt_status_hands,
             ref_values=self.contact_plan[:-1, :2],
             weights=cfg.contact_hands_weight,
         )
         self.add_sensor_cost(
             G1.Sensors.OBJ_TABLE_CONTACT,
-            hamming_dist_nb,
+            hamming_dist_nb_decay,
             sub_idx_sensor=[0],
             ref_values=self.contact_plan[:-1, -1],
             weights=cfg.contact_obj_weight,
@@ -165,7 +165,7 @@ class G1PickPlaceTableRef(TaskMjRef):
         )
         self.add_sensor_cost(
             G1.Sensors.HAND_CONTACTS,
-            quadratic_cost_nb,
+            quadratic_cost_nb_decay,
             sub_idx_sensor=G1.Sensors.id_cnt_force_hands,
             weights=cfg.contact_force_obj_weight,
         )

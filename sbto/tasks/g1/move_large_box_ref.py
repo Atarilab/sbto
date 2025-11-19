@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import sbto.tasks.g1.constants as G1
 from sbto.sim.sim_mj_rollout import SimMjRollout
 from sbto.tasks.task_mj_ref import TaskMjRef
-from sbto.tasks.cost import quadratic_cost_nb, quaternion_dist_nb, hamming_dist_nb
+from sbto.tasks.cost import quadratic_cost_nb_decay, quaternion_dist_nb_decay, hamming_dist_nb_decay
 
 @dataclass
 class ConfigG1MoveLargeBoxRef():
@@ -84,67 +84,67 @@ class G1MoveLargeBoxRef(TaskMjRef):
         # --- G1 costs ---
         self.add_state_cost_from_ref(
             "joint_ref",
-            quadratic_cost_nb,
+            quadratic_cost_nb_decay,
             sim.mj_scene.act_qposadr,
             weights=cfg.joint_pos_weight,
             weights_terminal=cfg.joint_pos_weight,
         )
         self.add_state_cost_from_ref(
             "base_position",
-            quadratic_cost_nb,
+            quadratic_cost_nb_decay,
             [0, 1, 2],
             weights=cfg.base_pos_weight,
             weights_terminal=cfg.base_pos_weight,
         )
         self.add_state_cost_from_ref(
             "base_quat",
-            quadratic_cost_nb,
+            quadratic_cost_nb_decay,
             [3, 4, 5, 6],
             weights=cfg.base_quat_weight,
             weights_terminal=cfg.base_quat_weight,
         )
         self.add_state_cost_from_ref(
             "joint_vel",
-            quadratic_cost_nb,
+            quadratic_cost_nb_decay,
             sim.mj_scene.act_vel_adr,
             weights=cfg.joint_vel_weight,
             weights_terminal=cfg.joint_vel_weight,
         )
         self.add_sensor_cost_from_ref(
             G1.Sensors.TORSO_POS,
-            quadratic_cost_nb,
+            quadratic_cost_nb_decay,
             weights=cfg.torso_pos_weight,
             weights_terminal=cfg.torso_pos_weight,
         )
         self.add_sensor_cost_from_ref(
             G1.Sensors.TORSO_QUAT,
-            quaternion_dist_nb,
+            quaternion_dist_nb_decay,
             weights=cfg.torso_quat_weight,
             weights_terminal=cfg.torso_quat_weight,
         )
         self.add_sensor_cost(
             G1.Sensors.TORSO_LINVEL,
-            quadratic_cost_nb,
+            quadratic_cost_nb_decay,
             weights=cfg.torso_linvel_weight,
             weights_terminal=cfg.torso_linvel_weight_terminal,
         )
         self.add_sensor_cost(
             G1.Sensors.TORSO_ANGVEL,
-            quadratic_cost_nb,
+            quadratic_cost_nb_decay,
             weights=cfg.torso_angvel_weight,
             weights_terminal=cfg.torso_angvel_weight_terminal,
         )
         # --- Obj cost ---
         # self.add_state_cost_from_ref(
         #     "obj_position",
-        #     quadratic_cost_nb,
+        #     quadratic_cost_nb_decay,
         #     sim.mj_scene.obj_pos_adr,
         #     weights=cfg.obj_pos_weight,
         #     weights_terminal=cfg.obj_pos_weight,
         # )
         # self.add_state_cost_from_ref(
         #     "obj_quat",
-        #     quaternion_dist_nb,
+        #     quaternion_dist_nb_decay,
         #     sim.mj_scene.obj_quat_adr,
         #     weights=cfg.obj_quat_weight,
         #     weights_terminal=cfg.obj_quat_weight,
@@ -153,25 +153,25 @@ class G1MoveLargeBoxRef(TaskMjRef):
         # Hand position
         self.add_sensor_cost_from_ref(
             G1.Sensors.HAND_POS,
-            quadratic_cost_nb,
+            quadratic_cost_nb_decay,
             weights=cfg.hand_position,
         )
         # Hand orientation
         self.add_sensor_cost_from_ref(
             G1.Sensors.HAND_QUAT,
-            quaternion_dist_nb,
+            quaternion_dist_nb_decay,
             weights=cfg.hand_orientation,
         )
         # Foot position
         self.add_sensor_cost_from_ref(
             G1.Sensors.FEET_POS,
-            quadratic_cost_nb,
+            quadratic_cost_nb_decay,
             weights=cfg.foot_position,
         )
         # Foot orientation
         self.add_sensor_cost_from_ref(
             G1.Sensors.FEET_QUAT,
-            quaternion_dist_nb,
+            quaternion_dist_nb_decay,
             weights=cfg.torso_quat_weight,
         )
 
@@ -185,7 +185,7 @@ class G1MoveLargeBoxRef(TaskMjRef):
 
         self.add_sensor_cost(
             G1.Sensors.FEET_CONTACTS,
-            hamming_dist_nb,
+            hamming_dist_nb_decay,
             sub_idx_sensor=G1.Sensors.id_cnt_status_feet,
             ref_values=self.contact_plan[:-1],
             ref_values_terminal=self.contact_plan[-1:],
@@ -193,7 +193,7 @@ class G1MoveLargeBoxRef(TaskMjRef):
         )
         self.add_sensor_cost(
             G1.Sensors.FEET_CONTACTS,
-            quadratic_cost_nb,
+            quadratic_cost_nb_decay,
             sub_idx_sensor=G1.Sensors.id_cnt_force_feet,
             weights=cfg.contact_force_feet_weight,
         )

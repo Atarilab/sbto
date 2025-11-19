@@ -90,3 +90,46 @@ def optimize_mutiple_shooting(
         compute_cost_multiple_shooting,
         init_state_solver,
     )
+
+from utils.decay import beta_decay, step_decay
+
+def optimize_with_decay(
+    sim: SimRolloutBase,
+    task: OCPBase,
+    solver: SamplingBasedSolver,
+    init_state_solver: Optional[SolverState] = None,
+    ) -> Tuple[SolverState, Array, Array]:
+    all_costs = []
+    all_samples = []
+    pbar = trange(solver.cfg.N_it, desc="Optimizing", leave=True)
+    pbar_postfix = {}
+
+    if not init_state_solver is None:
+        solver.state = copy.deepcopy(init_state_solver)
+
+    start = time.time()
+    for it in pbar:
+        # decay = beta_decay(it, solver.cfg.N_it, sim.T, b_start=1.25)
+        decay = step_decay(it, solver.cfg.N_it, sim.T, Nknots=sim.Nknots)
+        task.update_decay(decay)
+        solver.update_decay(decay[sim.t_knots])
+
+        samples = solver.get_samples()
+        costs = compute_cost(samples, sim, task)
+        solver.update(samples, costs)
+
+        all_samples.append(samples)
+        all_costs.append(costs)
+
+        pbar_postfix["min_cost"] = solver.state.min_cost_all
+        pbar.set_postfix(pbar_postfix)
+
+    end = time.time()
+    duration = end - start
+    print(f"Solving time: {duration:.2f}s")
+
+    all_samples_arr = np.asarray(all_samples)
+    all_costs_arr = np.asarray(all_costs)
+    last_solver_state = copy.deepcopy(solver.state)
+
+    return last_solver_state, all_samples_arr, all_costs_arr
