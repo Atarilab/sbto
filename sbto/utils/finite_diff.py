@@ -33,6 +33,43 @@ def finite_diff_qpos_traj(qpos: np.ndarray, dt: float) -> np.ndarray:
 
     return qvel
 
+def finite_diff_qpos_traj_high_order(qpos: np.ndarray, dt: float) -> np.ndarray:
+    """
+    Compute joint velocities using 4th-order accurate finite differencing.
+
+    Args:
+        qpos: [T, nq]
+        dt: timestep
+
+    Returns:
+        qvel: [T, nq]
+    """
+
+    T, nq = qpos.shape
+    qvel = np.zeros_like(qpos)
+
+    # ===== Interior: 4th-order central difference (5-point stencil) =====
+    # v[i] = (-x[i+2] + 8x[i+1] - 8x[i-1] + x[i-2]) / (12 dt)
+    if T >= 5:
+        qvel[2:-2] = (-qpos[4:] + 8*qpos[3:-1] - 8*qpos[1:-3] + qpos[0:-4]) / (12 * dt)
+
+    # ===== Boundaries: 4th-order forward/backward differences =====
+    # Forward difference at i = 0, 1
+    # coefficients from Fornberg's finite-difference tables
+    if T >= 5:
+        qvel[0] = (-25*qpos[0] + 48*qpos[1] - 36*qpos[2] + 16*qpos[3] - 3*qpos[4]) / (12*dt)
+        qvel[1] = (-3*qpos[0] - 10*qpos[1] + 18*qpos[2] - 6*qpos[3] + qpos[4]) / (12*dt)
+
+        # Backward difference at i = T-2, T-1
+        qvel[-1] = (25*qpos[-1] - 48*qpos[-2] + 36*qpos[-3] - 16*qpos[-4] + 3*qpos[-5]) / (12*dt)
+        qvel[-2] = (3*qpos[-1] + 10*qpos[-2] - 18*qpos[-3] + 6*qpos[-4] - qpos[-5]) / (12*dt)
+
+    else:
+        # Fall back to your original 2nd-order method for short trajectories
+        return finite_diff_qpos_traj(qpos, dt)
+
+    return qvel
+
 def finite_diff_quat(q1, q2, dt):
     """
     Compute angular velocity (3D) from two quaternions using:
