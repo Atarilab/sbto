@@ -10,6 +10,7 @@ save_fig: true
 # If a reference is provided, initial knots are taken from the reference
 init_knots_from_ref: false
 
+### Warm starting
 warm_start:
   # Start from solver state in <rundir>
   rundir: ""

@@ -77,31 +77,32 @@ def get_initial_state_solver_from_ref(sim, task, solver):
 
 def get_warm_start_state_solver(cfg, sim, task, solver) -> SolverState:
     # Set initial solver state
-    state_solver_0 = None
+    solver_state_0 = None
     if cfg.init_knots_from_ref and isinstance(task, TaskMjRef):
-        state_solver_0 = get_initial_state_solver_from_ref(sim, task, solver)
+        solver_state_0 = get_initial_state_solver_from_ref(sim, task, solver)
 
     if cfg.warm_start.rundir and os.path.exists(cfg.warm_start.rundir):
-        state_solver_0 = get_final_state_from_rundir(cfg.warm_start.rundir, solver)
+        solver_state_0 = get_final_state_from_rundir(cfg.warm_start.rundir, solver)
 
         if cfg.warm_start.reset_sigma0:
             solver.init_state()
-            state_solver_0.cov += solver.state.cov
+            solver_state_0.cov += solver.state.cov
 
         # Reset min cost/best
-        state_solver_0.min_cost = np.inf
-        state_solver_0.min_cost_all = np.inf
-        D = len(state_solver_0.mean)
-        state_solver_0.best = np.empty(D)
-        state_solver_0.best_all = np.empty(D)
+        solver_state_0.min_cost = np.inf
+        solver_state_0.min_cost_all = np.inf
+        D = len(solver_state_0.mean)
+        solver_state_0.best = np.empty(D)
+        solver_state_0.best_all = np.empty(D)
 
-    return state_solver_0
+    return solver_state_0
 
 @hydra.main(version_base=None, config_path="conf", config_name="config")
 def main(cfg):
     hydra_rundir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
 
     sim, task, solver = instantiate_from_cfg(cfg)
+    solver_state_0 = get_warm_start_state_solver(cfg, sim, task, solver)
 
     if cfg.warm_start.multiple_shooting:
         description = cfg.description + "warm_start_ms"
@@ -112,7 +113,7 @@ def main(cfg):
             description,
             hydra_rundir,
             cfg.save_fig,
-            state_solver_0,
+            solver_state_0=solver_state_0,
             multiple_shooting=True
         )
         cfg.warm_start.rundir = rundir
@@ -126,12 +127,12 @@ def main(cfg):
             description,
             hydra_rundir,
             cfg.save_fig,
-            state_solver_0,
+            solver_state_0=solver_state_0,
             cumul_opt=True
         )
         cfg.warm_start.rundir = rundir
     
-    state_solver_0 = get_warm_start_state_solver(cfg, sim, task, solver)
+    solver_state_0 = get_warm_start_state_solver(cfg, sim, task, solver)
 
     rundir = optimize_and_save_data(
         sim,
@@ -140,7 +141,7 @@ def main(cfg):
         cfg.description,
         hydra_rundir,
         cfg.save_fig,
-        state_solver_0,
+        solver_state_0,
     )
     
 if __name__ == "__main__":
