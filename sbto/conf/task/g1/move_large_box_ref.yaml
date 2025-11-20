@@ -6,11 +6,11 @@ cfg:
   ref_motion_path: "./sbto/tasks/g1/motion/move_large_box_no_obk.pkl"
   t0: 0.0
   speedup: 1.1
-  z_offset: 0.024
+  z_offset: 0.023
 
   # --- State costs ---
-  joint_pos_weight: 0.1
-  joint_vel_weight: 0.05
+  joint_pos_weight: 0.2
+  joint_vel_weight: 0.01
   base_pos_weight: 5.0
   base_quat_weight: 1.0
 
@@ -32,7 +32,7 @@ cfg:
   hand_orientation: 0.1
 
   # --- Foot pose cost ---
-  foot_position: 10.0
+  foot_position: 15.0
   foot_orientation: 0.1
 
   # --- Feet Contact cost ---
@@ -45,9 +45,9 @@ sim:
   _target_: sbto.sim.sim_mj_rollout.SimMjRollout
   cfg:
     _target_: sbto.sim.sim_mj_rollout.ConfigMjRollout
-    T: 300
-    Nknots: 15
-    interp_kind: cubic
+    T: 500
+    Nknots: 25
+    interp_kind: pchip
     Nthread: 20
     _chunk_size: 2
   scaling:

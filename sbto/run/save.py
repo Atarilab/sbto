@@ -194,7 +194,7 @@ def save_results(
     hydra_rundir: str = "",
     save_fig: bool = True,
     multiple_shooting: bool = False,
-    ) -> None:
+    ) -> str:
     task_name = task.__class__.__name__
     result_dir = create_dirs(task_name, description)
 
@@ -234,3 +234,5 @@ def save_results(
             x_traj,
             save_path=result_dir,
         )
+
+    return result_dir
