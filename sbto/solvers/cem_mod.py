@@ -33,6 +33,7 @@ class CEMMod(SamplingBasedSolver):
         self.N_keep = int(self.N_elite * cfg.keep_frac)
         # small diagonal regularization for covariance
         self.Id = np.diag(np.full(self.D, cfg.std_incr))
+        self.I = np.eye(D)
         self.reg_cov = cfg.std_incr > 0.
         
         self.first_it = True
@@ -53,7 +54,10 @@ class CEMMod(SamplingBasedSolver):
             if k > 0:
                 self.alpha_cov += np.diag(decay_knots[k:] * (self.cfg.alpha_cov-std_min), k) 
             self.alpha_cov += np.diag(decay_knots[k:] * (self.cfg.alpha_cov-std_min), -k)
-        self.alpha_cov = np.round(self.alpha_cov, 3)
+        # Make sure alpha_cov have positive eigen values
+        # Numerically unstable otherwise
+        # E = np.linalg.eigvalsh(self.alpha_cov)
+        # self.alpha_cov += self.I * np.abs(np.min(E))
 
     def get_samples(self) -> Array:
         """
@@ -63,7 +67,7 @@ class CEMMod(SamplingBasedSolver):
         samples = super().get_samples()
 
         if self.N_keep > 0 and not self.first_it:
-            self.samples[self.N_keep:] = samples[:-self.N_keep]
+            self.samples[self.N_keep:] = samples[self.N_keep:]
             return self.samples
         else:
             return samples
@@ -94,14 +98,13 @@ class CEMMod(SamplingBasedSolver):
         Update the solver state from elite samples.
         """
         elites, elites_idx = self.get_elites(samples, costs)
+        self.update_distrib_param(self.state, elites)
         if self.N_keep > 0:
-            keep_idx = elites_idx[:self.N_keep]
-            self.samples[:self.N_keep] = samples[keep_idx]
+            self.samples[:self.N_keep] = elites[:self.N_keep]
 
         arg_min = elites_idx[0]
         best = samples[arg_min]
         min_cost = costs[arg_min]
         self.update_min_cost_best(self.state, min_cost, best)
 
-        self.update_distrib_param(self.state, elites)
         self.first_it = False
