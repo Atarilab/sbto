@@ -43,3 +43,18 @@ def step_decayed_mod(it: int, Nit: int, T: int, Nknots: int, decay_rate: float =
     mod /= np.sum(mod)
     mod *= T
     return mod
+
+def step_mod_transition(it: int, Nit: int, T: int, Nknots: int, **kwargs):
+    n_step = np.int32(np.linspace(0, 1 , Nit+1) * (Nknots-1))[it] + 1
+    mod = np.zeros(T)
+    i = np.int32(np.linspace(0, T, Nknots, endpoint=True))[n_step]
+    mod[:i] = 1.
+
+    if n_step < Nknots - 1:
+        i_transition = np.int32(np.linspace(0, T, Nknots, endpoint=True))[n_step+1]
+        v = (it % (Nit // Nknots)) / Nknots
+        mod[i:i_transition] = (it % (Nknots)) / Nknots
+
+    mod /= np.sum(mod)
+    mod *= T
+    return mod
