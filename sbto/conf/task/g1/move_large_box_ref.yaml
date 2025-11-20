@@ -17,11 +17,11 @@ cfg:
   # --- Torso pose/vel ---
   torso_pos_weight: 30.0
   torso_quat_weight: 1.0
-  torso_quat_weight_terminal: 10.0
+  torso_quat_weight_terminal: 5.0
   torso_linvel_weight: 1.0
-  torso_linvel_weight_terminal: 10.0
+  torso_linvel_weight_terminal: 1.0
   torso_angvel_weight: 1.0
-  torso_angvel_weight_terminal: 10.0
+  torso_angvel_weight_terminal: 1.0
 
   # --- Obj pose cost ---
   obj_pos_weight: 30.0
@@ -48,12 +48,12 @@ sim:
     T: 500
     Nknots: 25
     interp_kind: pchip
-    Nthread: 20
+    Nthread: -1
     _chunk_size: 2
   scaling:
     _target_: sbto.sim.action_scaling.Scaling
     name: nominal
-    clip: False
+    clip: True
 
   # === MuJoCo Scene ===
   mj_scene:
