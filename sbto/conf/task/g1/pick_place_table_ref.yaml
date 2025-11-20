@@ -1,57 +1,39 @@
 _target_: sbto.tasks.g1.pick_place_table_ref.G1PickPlaceTableRef
-
 cfg:
   _target_: sbto.tasks.g1.pick_place_table_ref.ConfigG1PickPlaceTableRef
-  # === Reference motion ===
-  ref_motion_path: "./sbto/tasks/g1/motion/pick_and_place_table.pkl"
-  t0: 0.5
-  speedup: 2. 
-  z_offset: 0.
-
-  # === Object state goal ===
-  time_lift:  0.2
-  time_after_place: 0.0
-
-  # === State costs ===
-  joint_pos_weight: 0.05
+  ref_motion_path: ./sbto/tasks/g1/motion/pick_and_place_table.pkl
+  t0: 0.65
+  speedup: 2.0
+  z_offset: 0.0
+  time_lift: 0.25
+  time_after_place: 0.25
+  joint_pos_weight: 0.15
   joint_vel_weight: 0.05
-
-  # === Torso position cost ===
-  torso_pos_weight: 2.
-  base_pos_weight: 2.
-  torso_quat_weight: 1.
-  torso_quat_weight_terminal: 10.
-
-  # === Object state costs ===
+  torso_pos_weight: 5.0
+  base_pos_weight: 2.0
+  torso_quat_weight: 1.0
+  torso_quat_weight_terminal: 10.0
   obj_pos_weight: 30.0
-  obj_quat_weight: 10.0
-
-  # === Hand pose cost === 
-  hand_position: 5.
+  obj_quat_weight: 5.0
+  hand_position: 10.0
   hand_orientation: 0.1
-
-  # === Contact plan and cost ===
   contact_hands_weight: 1.0
   contact_obj_weight: 1.0
   contact_obj_weight_terminal: 10.0
-  contact_force_obj_weight: 1.0e-3
-
-# === Rollout simulator ===
+  contact_force_obj_weight: 0.001
 sim:
   _target_: sbto.sim.sim_mj_rollout.SimMjRollout
   cfg:
     _target_: sbto.sim.sim_mj_rollout.ConfigMjRollout
-    T: 200
-    Nknots: 6
+    T: 400
+    Nknots: 5
     interp_kind: linear
-    Nthread: 20
+    Nthread: -1
     _chunk_size: 2
   scaling:
     _target_: sbto.sim.action_scaling.Scaling
     name: nominal
-    clip: True
-
-  # === MuJoCo Scene ===
+    clip: true
   mj_scene:
     _target_: sbto.sim.scene_mj.MjScene
     cfg:
@@ -59,8 +41,6 @@ sim:
       xml_scene_path: sbto/models/unitree_g1/scene_mjx_29dof_no_hands.xml
       xml_sensors_path: sbto/models/unitree_g1/sensors/with_obj.xml
       xml_contact_pairs_path: sbto/models/unitree_g1/contact_pairs/with_obj.xml
-
-      # === Additional bodies ===
       add_body:
         obj:
           type: box
