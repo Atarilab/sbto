@@ -199,7 +199,6 @@ def save_results(
     result_dir = create_dirs(task_name, description)
 
     print(f"[{description or 'Unnamed'}] Best cost: {solver_state_final.min_cost_all}")
-
     best_knots = solver_state_final.best_all
     # Get best traj
     if multiple_shooting:

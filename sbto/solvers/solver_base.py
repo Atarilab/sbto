@@ -91,7 +91,7 @@ class SamplingBasedSolver(ABC):
         state.min_cost=float(min_cost_rollout)
         state.best = best
         if min_cost_rollout < state.min_cost_all:
-            state.best_all = best
+            state.best_all = best.copy()
             state.min_cost_all=float(min_cost_rollout)
 
     def get_samples(self) -> Array:

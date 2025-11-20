@@ -8,6 +8,7 @@ from typing import Tuple, Optional, Any
 from sbto.sim.sim_base import SimRolloutBase
 from sbto.tasks.task_base import OCPBase
 from sbto.solvers.solver_base import SamplingBasedSolver, SolverState
+from sbto.utils.modulation import beta_mod, step_mod, mpc_mod, step_decayed_mod, step_mod_transition
 
 Array = npt.NDArray[np.float64]
 
@@ -91,8 +92,6 @@ def optimize_mutiple_shooting(
         init_state_solver,
     )
 
-from sbto.utils.modulation import beta_mod, step_mod, mpc_mod, step_decayed_mod
-
 def optimize_with_mod(
     sim: SimRolloutBase,
     task: OCPBase,
@@ -107,22 +106,21 @@ def optimize_with_mod(
     if not init_state_solver is None:
         solver.state = copy.deepcopy(init_state_solver)
 
-    N_it_full = 150
+    N_it_full = 75
     mod_fn = step_mod
 
     start = time.time()
     for it in pbar:
-        # decay = beta_mod(it, solver.cfg.N_it, sim.T, b_start=1.25)
-        decay = mod_fn(it, solver.cfg.N_it, sim.T, Nknots=sim.Nknots)
-        task.update_mod(decay)
-        solver.update_mod(decay[sim.t_knots])
-
+        mod = mod_fn(it, solver.cfg.N_it, sim.T, Nknots=sim.Nknots, b_start=1.3)
+        task.update_mod(mod)
+        solver.update_mod(mod[sim.t_knots])
         samples = solver.get_samples()
-        costs = compute_cost(samples, sim, task)
-        solver.update(samples, costs)
+        all_samples.append(samples.copy())
 
-        all_samples.append(samples)
+        costs = compute_cost(samples, sim, task)
         all_costs.append(costs)
+
+        solver.update(samples, costs)
 
         pbar_postfix["min_cost"] = solver.state.min_cost_all
         pbar_postfix["cost"] = solver.state.min_cost
@@ -138,17 +136,18 @@ def optimize_with_mod(
         pbar_postfix = {}
 
         # Optimizing full cost
-        decay = np.ones(sim.T)
+        mod = np.ones(sim.T)
         for it in pbar:
-            task.update_mod(decay)
-            solver.update_mod(decay[sim.t_knots])
+            task.update_mod(mod)
+            solver.update_mod(mod[sim.t_knots])
 
             samples = solver.get_samples()
-            costs = compute_cost(samples, sim, task)
-            solver.update(samples, costs)
+            all_samples.append(samples.copy())
 
-            all_samples.append(samples)
+            costs = compute_cost(samples, sim, task)
             all_costs.append(costs)
+
+            solver.update(samples, costs)
 
             pbar_postfix["min_cost"] = solver.state.min_cost_all
             pbar_postfix["cost"] = solver.state.min_cost
