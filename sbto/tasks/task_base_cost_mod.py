@@ -22,11 +22,14 @@ class OCPCostMod(OCPBase):
         self._costs_names: List[str] = []
         self._costs_fn: List[CostFn] = []
 
-        self.decay = np.ones(T)
+        self.mod = np.ones(T)
 
-    def update_mod(self, decay):
-        self.decay = decay
-
+    def update_mod(self, mod):
+        self.mod = mod.copy()
+        # Normalize
+        self.mod /= np.sum(self.mod)
+        self.mod *= self.T
+        
     def _add_cost(self,
                 type: VarType,
                 name: str,
@@ -34,26 +37,13 @@ class OCPCostMod(OCPBase):
                 idx: Union[IntArray, int],
                 ref_values: Union[Array, float],
                 weights: Union[Array, float],
-                terminal: bool,
                 ) -> None:
-        TERMINAL_STR = "_terminal"
-
-        if terminal and name in self._costs_names:
-            name = name + TERMINAL_STR
-        if name in self._costs_names:
-            raise ValueError(f"Cost with name '{name}' already exists.")
-
-        I = len(idx) if isinstance(idx, (list, np.ndarray)) else 1
-        T = 1 if terminal else self.T-1
-
-        ref_values = self._normalize_cost_array(ref_values, T, I, name=f"ref_values of {name}")
-        weights    = self._normalize_cost_array(weights,    T, I, name=f"weights of {name}")
-
-        extractor = partial(self._extract_var, idx=idx, terminal=terminal)
+        
+        extractor = partial(self._extract_var, idx=idx)
         mapping = {
-            VarType.STATE: lambda x, u, o, d: f(extractor(x), ref_values, weights, d),
-            VarType.CONTROL: lambda x, u, o, d: f(extractor(u), ref_values, weights, d),
-            VarType.OBS: lambda x, u, o, d: f(extractor(o), ref_values, weights, d),
+            VarType.STATE: lambda x, u, o, m: f(extractor(x), ref_values, weights, m),
+            VarType.CONTROL: lambda x, u, o, m: f(extractor(u), ref_values, weights, m),
+            VarType.OBS: lambda x, u, o, m: f(extractor(o), ref_values, weights, m),
         }
         self._costs_fn.append(mapping[type])
         self._costs_names.append(name)
@@ -66,4 +56,26 @@ class OCPCostMod(OCPBase):
         - observations trajectories [-1, T, Nobs]
         - decay [T]: multiplier to each time step of the cost
         """
-        return sum(cost_fn(x_traj, u_traj, obs_traj, self.decay) for cost_fn in self._costs_fn)
+        return sum(cost_fn(x_traj, u_traj, obs_traj, self.mod) for cost_fn in self._costs_fn)
+    
+    def _cost_debug(self, x_traj : Array, u_traj : Array, obs_traj : Array, decay : Array, N_print: int = 1) -> float:
+        """
+        Compute cost based on:
+        - state trajectories [-1, T, Nu]
+        - control trajectories [-1, T, Nu]
+        - observations trajectories [-1, T, Nobs]
+        """
+        N, T_traj, _ = u_traj.shape
+        total = np.zeros(N)
+        keep_terminal = T_traj == self.T and decay[-1] != 0.
+        print(T_traj, self.T, keep_terminal)
+        for name, f in zip(self._costs_names, self._costs_fn):
+            if not keep_terminal and "terminal" in name:
+                continue 
+            c = f(x_traj, u_traj, obs_traj, decay)
+            total += c
+            print(name)
+            print(c[:N_print])
+
+        print("--- total", total[:N_print])
+        return total

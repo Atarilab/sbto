@@ -3,16 +3,6 @@ import numpy.typing as npt
 from numba import njit, prange
 
 Array = npt.NDArray[np.float64]
-
-def quadratic_cost(var: Array, ref: Array, weights: Array) -> float:
-    return np.sum(weights[None, ...] * (var - ref[None, ...]) ** 2, axis=(-1, -2))
-
-def contact_cost(cnt_status_rollout, cnt_plan, weights) -> float:
-    cnt_status_rollout[cnt_status_rollout > 1] = 1
-    return np.sum(weights[None, ...] * np.float32(cnt_status_rollout != cnt_plan[None, ...]), axis=(-1, -2))
-
-def quat_dist(var, ref, weights) -> float:
-    return np.sum(weights[:, 0] * (1.0 - np.square(np.sum(var * ref[None, ...], axis=-1))), axis=(-1))
     
 @njit(parallel=True, fastmath=True, cache=True)
 def quadratic_cost_nb(var, ref, weight):
@@ -28,7 +18,7 @@ def quadratic_cost_nb(var, ref, weight):
     return result
     
 @njit(parallel=True, fastmath=True, cache=True)
-def quadratic_cost_nb_mod(var, ref, weight, decay):
+def quadratic_cost_nb_mod(var, ref, weight, mod):
     N, T, I = var.shape
     result = np.empty(N, np.float64)
     for n in prange(N):
@@ -36,7 +26,7 @@ def quadratic_cost_nb_mod(var, ref, weight, decay):
         for t in range(T):
             for i in range(I):
                 diff = var[n, t, i] - ref[t, i]
-                total += weight[t, i] * diff * diff * decay[t]
+                total += weight[t, i] * diff * diff * mod[t]
         result[n] = total
     return result
 
@@ -69,7 +59,7 @@ def quaternion_dist_nb(var, ref, weights):
     return result
 
 @njit(parallel=True, fastmath=True, cache=True)
-def quaternion_dist_nb_mod(var, ref, weights, decay):
+def quaternion_dist_nb_mod(var, ref, weights, mod):
     """
     Numba-accelerated version of quaternion distance cost.
     Shapes:
@@ -93,7 +83,7 @@ def quaternion_dist_nb_mod(var, ref, weights, decay):
                 for k in range(iquat * QUAT_SIZE, (iquat+1) * QUAT_SIZE):
                     dot += var[n, t, k] * ref[t, k]
                 diff = 1.0 - dot * dot
-                total += weights[t, 0] * diff * decay[t]
+                total += weights[t, 0] * diff * mod[t]
         result[n] = total
     return result
 
@@ -128,7 +118,7 @@ def hamming_dist_nb(cnt_rollout, cnt_plan, weights):
 
 
 @njit(parallel=True, fastmath=True, cache=True)
-def hamming_dist_nb_mod(cnt_rollout, cnt_plan, weights, decay):
+def hamming_dist_nb_mod(cnt_rollout, cnt_plan, weights, mod):
     """
     Efficient Hamming-distance-based contact cost.
     Args:
@@ -152,6 +142,6 @@ def hamming_dist_nb_mod(cnt_rollout, cnt_plan, weights, decay):
                     s = 1
                 # XOR trick for mismatch detection (works with ints 0/1)
                 diff = int(s) ^ int(cnt_plan[t, c])
-                total += weights[t, c] * diff * decay[t]
+                total += weights[t, c] * diff * mod[t]
         result[n] = total
     return result
