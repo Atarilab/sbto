@@ -2,6 +2,7 @@ import numpy as np
 import numpy.typing as npt
 from typing import Tuple
 from dataclasses import dataclass
+import matplotlib.pyplot as plt
 
 from sbto.solvers.solver_base import SamplingBasedSolver, SolverState, ConfigSolver
 
@@ -22,6 +23,23 @@ class ConfigCEMMod(ConfigSolver):
     std_incr: float = 0.
     keep_frac: float = 0.
     _target_:str = "sbto.solvers.cem.CEM"
+
+def save_with_grid(mat, Nu, filename, title=None, dpi=300):
+    plt.figure()
+    plt.imshow(mat)
+    plt.colorbar()
+    if title:
+        plt.title(title)
+
+    # grid every Nu pixels
+    D = mat.shape[0]
+    for x in range(0, D, Nu):
+        plt.axvline(x - 0.5, color='w', linewidth=0.5)
+        plt.axhline(x - 0.5, color='w', linewidth=0.5)
+
+    plt.tight_layout()
+    plt.savefig(filename, dpi=dpi)
+    plt.close()
     
 class CEMMod(SamplingBasedSolver):
     """
@@ -35,29 +53,57 @@ class CEMMod(SamplingBasedSolver):
         self.Id = np.diag(np.full(self.D, cfg.std_incr))
         self.I = np.eye(D)
         self.reg_cov = cfg.std_incr > 0.
+        self.Nknots_to_opt = 0
+        self.i = 0
         
         self.first_it = True
         if self.N_keep > 0:
             self.samples = np.empty((cfg.N_samples, D))
     
     def update_mod(self, decay_t_knots: Array):
-        Nknots = len(decay_t_knots)
-        Nu = self.D // Nknots
-        alpha_min = 0.
-        decay_t_knots /= np.max(decay_t_knots)
-        decay_knots = np.repeat(decay_t_knots, Nu)
-        self.alpha_mean = (self.cfg.alpha_mean - alpha_min) * decay_knots + alpha_min
-        
-        std_min = 0.0
-        self.alpha_cov = np.full((self.D, self.D), std_min)
-        for k in range(self.D):
-            if k > 0:
-                self.alpha_cov += np.diag(decay_knots[k:] * (self.cfg.alpha_cov-std_min), k) 
-            self.alpha_cov += np.diag(decay_knots[k:] * (self.cfg.alpha_cov-std_min), -k)
-        # Make sure alpha_cov have positive eigen values
-        # Numerically unstable otherwise
-        # E = np.linalg.eigvalsh(self.alpha_cov)
-        # self.alpha_cov += self.I * np.abs(np.min(E))
+        # get first 0
+        Nknots_to_opt = np.argmin(decay_t_knots)
+
+        if self.Nknots_to_opt != Nknots_to_opt:
+            # maxstd = np.max(np.diag(self.state.cov * self.alpha_cov))
+            # argmax = np.argmax(np.diag(self.state.cov * self.alpha_cov))
+            # print("Max std diag", maxstd, argmax)
+            self.Nknots_to_opt = Nknots_to_opt
+
+            Nknots = len(decay_t_knots)
+            Nu = self.D // Nknots
+
+            alpha_min = 0.0
+            base_mean = self.cfg.alpha_mean - alpha_min
+            decay_knots = np.repeat(decay_t_knots, Nu)
+            self.alpha_mean = decay_knots * base_mean + alpha_min
+            
+            std_min = 0.0
+            self.alpha_cov = np.full((self.D, self.D), std_min)
+            base_cov = self.cfg.alpha_cov - std_min
+            for k in range(Nknots):
+                if decay_t_knots[k] > 0:
+                    i, j = k * Nu, (k+1) * Nu
+                    self.alpha_cov[i:j, i:j] += decay_t_knots[k] * base_cov
+                    if k > 0:
+                        self.alpha_cov[i:j, :i] += decay_t_knots[k] * base_cov
+                        self.alpha_cov[:i, i:j] += decay_t_knots[k] * base_cov
+            
+            # for k in range(self.D):
+            #     if k > 0:
+            #         self.alpha_cov += np.diag(decay_knots[k:] * (self.cfg.alpha_cov-std_min), k) 
+            #     self.alpha_cov += np.diag(decay_knots[k:] * (self.cfg.alpha_cov-std_min), -k)
+
+            # Make sure alpha_cov have positive eigen values
+            # Numerically unstable otherwise
+            # E = np.linalg.eigvalsh(self.alpha_cov)
+            # self.alpha_cov += self.I * np.abs(np.min(E))
+
+
+            # save_with_grid(self.alpha_cov, Nu, f"test/alpha_cov_{i}.pdf")
+            # save_with_grid(self.state.cov * self.alpha_cov, Nu, f"test/state_cov_{i}.pdf")
+            # self.i += 1
+
 
     def get_samples(self) -> Array:
         """
