@@ -61,10 +61,22 @@ def concatenate_full_state(data):
 
 def interpolate_data(data, dt: float):
     t_interp = np.arange(0, data["time"][-1], dt)
-    NO_INTERP = ["time", "fps"]
+    INTERP = [
+        'qpos',
+        'root_pos',
+        'root_rot',
+        'dof_pos',
+        'object_root_pos',
+        'object_rot',
+        'object_v',
+        'object_w',
+        'root_v',
+        'root_w',
+        'dof_v'
+        ]
 
     for k, v in data.items():
-        if k not in NO_INTERP and v is not None:
+        if k in INTERP and v is not None:
             interpolate = interp1d(
                 data["time"],
                 y=v,
@@ -149,9 +161,8 @@ def load_reference(
     print(data.keys())
 
     dt_interp = mj_model.opt.timestep
-    if dt_interp > 0:
+    if dt_interp != 1/data["fps"]:
         data = interpolate_data(data, dt_interp)
-
 
     if z_offset != 0:
         data["root_pos"][:, 2] -= z_offset
@@ -306,26 +317,27 @@ if __name__ == "__main__":
     from sbto.utils.plotting import plot_contact_plan
     import sbto.tasks.g1.constants as G1 
 
-    path = "test/sub3_largebox_003.pkl"
-    xml = "sbto/models/unitree_g1/scene_mjx.xml"
+    path = "./sbto/tasks/g1/motion/sub3_largebox_005_original.pkl"
+    xml = "sbto/models/unitree_g1/scene_29dof_box_mesh.xml"
 
-    data = load_reference(path, xml, sensor_names=G1.Sensors.FEET_CONTACTS, speedup=1.1, z_offset=0.025)
+    data = load_reference(path, xml, speedup=1.4, z_offset=0.01)
     print(data.keys())
     print(data['x'].shape)
+    print(data["object_rot"][0])
 
     mj_model = mujoco.MjModel.from_xml_path(xml)
     mj_data = mujoco.MjData(mj_model)
 
-    cnt_plan = np.stack([data[sns_cnt][:, 0] for sns_cnt in G1.Sensors.FEET_CONTACTS]).T
-    cnt_plan[cnt_plan > 1] = 1
-    print(cnt_plan.shape)
-    plot_contact_plan(
-        np.zeros_like(cnt_plan),
-        cnt_plan
-    )
+    # cnt_plan = np.stack([data[sns_cnt][:, 0] for sns_cnt in G1.Sensors.FEET_CONTACTS]).T
+    # cnt_plan[cnt_plan > 1] = 1
+    # print(cnt_plan.shape)
+    # plot_contact_plan(
+    #     np.zeros_like(cnt_plan),
+    #     cnt_plan
+    # )
     
-    visualize_trajectory(mj_model, mj_data, data["time"], data["x"])
+    # visualize_trajectory(mj_model, mj_data, data["time"], data["x"])
     file_name = os.path.split(path)[-1][:-4]
-    # render_and_save_trajectory(mj_model, mj_data, data["time"], data["x"], save_path=f"test/test_{file_name}.mp4", fps=30)
+    render_and_save_trajectory(mj_model, mj_data, data["time"], data["x"], save_path=f"test/test_{file_name}.mp4", fps=30)
 
 
