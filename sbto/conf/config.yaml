@@ -20,3 +20,5 @@ warm_start:
   cumul_opt: false
   # Reset sigma0 to defaut when warm starting (take only the mean)
   reset_sigma0: false
+  # Iterations of warm start (if 0, same number as in solver config)
+  N_it: 0

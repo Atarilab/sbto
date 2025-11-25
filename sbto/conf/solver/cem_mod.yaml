@@ -9,6 +9,6 @@ cfg:
   alpha_cov: 0.15
   std_incr: 0.
   sigma0: 0.25
-  quasi_random: True
+  quasi_random: False
   seed: 0
   sampler: normal
