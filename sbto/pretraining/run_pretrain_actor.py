@@ -3,11 +3,13 @@ import sys
 import matplotlib.pyplot as plt
 import numpy as np
 import torch  
+import matplotlib
+matplotlib.use("Agg")  
 
 def main(): 
     #Training
     base_dir = os.path.dirname(__file__)
-    npz_path = os.path.abspath(os.path.join(base_dir, "../data/rollout_time_x_u_obs_traj_scene_29dof_rl_format.npz"))
+    npz_path = os.path.abspath(os.path.join(base_dir, "../data/rollout_time_x_u_obs_traj.npz"))
     save_dir = os.path.join(base_dir, "pretrained_actor")
     os.makedirs(save_dir, exist_ok=True)
 
@@ -34,14 +36,15 @@ def main():
         plt.ylabel("MSE Loss")
         plt.legend()
         plt.grid(True)
-        plt.show()
+
+        out_path = os.path.join(save_dir, "training_loss.png")
+        plt.tight_layout()
+        plt.savefig(out_path, dpi=150)
+        plt.close()
+        print(f"Saved loss plot to {out_path}")
     else:
         print(" No log file found for visualization.")
 
-    # Network info
-    
-    print("\nRunning network info summary...")
-    exec(open("/Users/mustaphadaly/Desktop/sbto/sbto/pretraining/pretrained_actor/network_architecture.py").read())
 
 if __name__ == "__main__":
     main()

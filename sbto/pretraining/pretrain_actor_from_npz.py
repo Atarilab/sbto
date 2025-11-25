@@ -6,15 +6,33 @@ import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader, random_split
 from rsl_rl.networks import MLP, EmpiricalNormalization
+from mjlab.third_party.isaaclab.isaaclab.utils.math import matrix_from_quat
 
+def quat_to_6d(q_np: np.ndarray) -> np.ndarray:
+    """
+    q_np: (..., 4) quaternion (w, x, y, z)
+    returns: (..., 6) = first two columns of 3x3 rotation matrix, flattened
+    """
+    # to torch, float32
+    q = torch.from_numpy(q_np.astype(np.float32))
 
+    # normalization
+    q = q / q.norm(dim=-1, keepdim=True).clamp_min(1e-8)
+
+	# Convert quat to 3×3 rotation matrix
+    R = matrix_from_quat(q)
+
+    # 6-D representation
+    R_2 = R[..., :, :2].reshape(*q.shape[:-1], 6)
+
+    return R_2.numpy()
 # Dataset
 
 class SbtoNpzDataset(Dataset):
     """
     Builds all 8 MJLAB policy inputs from a rollout npz with shape (N_traj, T, ·).
 
-    Input at time t  ->  target = joint positions at time t+1.
+
     """
     def __init__(self, npz_path: str):
         super().__init__()
@@ -24,8 +42,11 @@ class SbtoNpzDataset(Dataset):
         raw_act_pos = data["actuator_pos"].astype(np.float32)           # (N, T, A)
         raw_act_vel = data["actuator_vel"].astype(np.float32)           # (N, T, A)
         raw_base_linang = data["base_linvel_angvel"].astype(np.float32) # (N, T, 6)
+        raw_u = data["u_policy"].astype(np.float32)                        # (N, T, U)
 
         N, T, A = raw_act_pos.shape
+        U = raw_u.shape[2]
+        self.U = U
         if T < 2:
             raise ValueError("Need at least 2 timesteps to build t -> t+1 pairs")
 
@@ -42,12 +63,12 @@ class SbtoNpzDataset(Dataset):
         raw_last_action = np.zeros_like(raw_act_pos)   # (N, T, A)
         raw_last_action[:, 1:, :] = raw_act_pos[:, :-1, :]
 
-        # anchor terms 
-        raw_anchor_pos_b = np.zeros((N, T, 3), dtype=np.float32)       # (N, T, 3)
-        raw_anchor_ori_b = np.tile(
-            np.array([1, 0, 0, 0, 1, 0], dtype=np.float32),
-            (N, T, 1)
-        )  # (N, T, 6)
+        # anchor_pos_b: (N, T, 3) in world frame
+        raw_anchor_pos_b = data["anchor_pos_b"].astype(np.float32)      # (N, T, 3)
+
+        # anchor_ori_b: (N, T, 4) quaternion (w, x, y, z) -> convert to 6D
+        raw_anchor_quat_b = data["anchor_ori_b"].astype(np.float32)     # (N, T, 4)
+        raw_anchor_ori_b = quat_to_6d(raw_anchor_quat_b)                # (N, T, 6)
 
         # Effective timesteps 
         T_eff = T - 1
@@ -61,8 +82,7 @@ class SbtoNpzDataset(Dataset):
         obs_anchor_pos_b = raw_anchor_pos_b[:, :-1, :]   # (N, T-1, 3)
         obs_anchor_ori_b = raw_anchor_ori_b[:, :-1, :]   # (N, T-1, 6)
 
-        # Targets at time t+1  
-        target_act_pos = raw_act_pos[:, 1:, :]           # (N, T-1, A)
+
 
         #flatten to 2D
         self.act_pos   = obs_act_pos.reshape(N * T_eff, A)        # (N*(T-1), A)
@@ -75,9 +95,12 @@ class SbtoNpzDataset(Dataset):
 
         # generated_commands 
         self.commands = np.concatenate([self.act_pos, self.act_vel], axis=-1)  # (N*(T-1), 2A)
+        
+        # Targets at time t: control u_t
+        target_u = raw_u[:, :-1, :]                      # (N, T-1, U)
+        self.targets = target_u.reshape(N * T_eff, U)    # (N*(T-1), U)
 
-        # Targets: joint_pos at t+1
-        self.targets = target_act_pos.reshape(N * T_eff, A)   # (N*(T-1), A)
+      
         self.num_samples = N * T_eff
 
     def __len__(self):
@@ -191,8 +214,12 @@ def main():
     np.random.seed(args.seed)
 
     ds = SbtoNpzDataset(args.npz)
-    A = ds.act_pos.shape[1]
-    obs_dim = (2 * A) + 3 + 6 + 3 + 3 + A + A + A  #computed actor obs dim
+
+    A = ds.act_pos.shape[1]          # number of joints (for obs_dim)
+    num_actions = ds.targets.shape[1]  # dimension of u
+
+    obs_dim = (2 * A) + 3 + 6 + 3 + 3 + A + A + A  # unchanged
+    
     # Split
     val_len = int(len(ds) * args.val_split)
     train_len = len(ds) - val_len
@@ -207,7 +234,14 @@ def main():
                             num_workers=0, collate_fn=collate_to_actor_obs, pin_memory=True)
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    model = ActorMLP(obs_dim=obs_dim, num_actions=A, hidden=(256, 256, 256), activation="elu").to(device)
+    
+    model = ActorMLP(
+    obs_dim=obs_dim,
+    num_actions=num_actions,
+    hidden=(256, 256, 256),
+    activation="elu",
+    ).to(device)
+    
     optim = torch.optim.Adam(model.parameters(), lr=args.lr)
 
     best_val = math.inf
@@ -228,7 +262,7 @@ def main():
             torch.save({
                 "actor_state_dict": model.state_dict(),     # includes norm + mlp
                 "obs_dim": obs_dim,
-                "num_actions": A,
+                "num_actions": num_actions,
                 "hidden": (256, 256, 256),
                 "activation": "elu",
                 "val_mse": best_val,
@@ -240,11 +274,17 @@ def main():
     torch.save({
         "actor_state_dict": model.state_dict(),
         "obs_dim": obs_dim,
-        "num_actions": A,
+        "num_actions": num_actions,
         "hidden": (256, 256, 256),
         "activation": "elu",
         "val_mse": best_val,
     }, final_path)
+    
+    #  network architecture summary 
+    arch_path = os.path.join(args.save_dir, "network_architecture.txt")
+    with open(arch_path, "w") as f:
+        f.write(str(model))
+    print(f"Saved model architecture to {arch_path}")
 
     # Save training logs for visualization
     np.save(

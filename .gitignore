@@ -4,6 +4,10 @@ runs/
 datasets/
 outputs/
 MUJOCO_LOG.TXT
+echo "mjlab/" >> .gitignore
+echo "rsl_rl/" >> .gitignore
+echo "mujoco_warp/" >> .gitignore
+echo "**/.git/" >> .gitignore
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
