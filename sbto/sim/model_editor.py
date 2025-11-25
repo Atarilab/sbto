@@ -112,6 +112,8 @@ class ModelEditor():
         else:
             geom.pos = pos
             geom.quat = self._to_quat(euler)
+        if rgba is None:
+            rgba = np.ones(4)
         geom.type = geom_type
         geom.size = size.copy()
         geom.rgba = rgba
