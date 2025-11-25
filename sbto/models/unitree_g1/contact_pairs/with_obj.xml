@@ -91,9 +91,11 @@
     <pair name="left_hand_obj" geom1="left_hand_collision" geom2="obj" solref="0.01 1." friction="1 1" condim="3"/>
     <pair name="right_hand_obj" geom1="right_hand_collision" geom2="obj" solref="0.01 1." friction="1 1" condim="3"/>
     <!-- wrist - obj -->
-    <!-- <pair geom1="left_wrist_collision" geom2="obj" solref="0.01 1" friction="1 1" condim="3"/>
-    <pair geom1="right_wrist_collision" geom2="obj" solref="0.01 1" friction="1 1" condim="3"/> -->
-    
+    <pair geom1="left_wrist_collision" geom2="obj" solref="0.01 1" friction="1 1" condim="3"/>
+    <pair geom1="right_wrist_collision" geom2="obj" solref="0.01 1" friction="1 1" condim="3"/>
+    <!-- elbow_yaw - obj -->
+    <pair geom1="left_elbow_yaw_collision" geom2="obj" solref="0.01 1" friction="1 1" condim="3"/>
+    <pair geom1="right_elbow_yaw_collision" geom2="obj" solref="0.01 1" friction="1 1" condim="3"/>
 
     <!-- torso - obj -->
     <pair name="torso_obj" geom1="torso_collision" geom2="obj" condim="1"/>

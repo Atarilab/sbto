@@ -25,6 +25,36 @@
         <actuatorfrc name="right_elbow_joint" actuator="right_elbow_joint"/>
         <actuatorfrc name="right_wrist_roll_joint" actuator="right_wrist_roll_joint"/> -->
 
+        <!-- hands contact -->
+        <contact geom1="obj" subtree2="left_wrist_pitch_link" reduce="maxforce" data="found force" num="1" name="left_hand_cnt"/>
+        <contact geom1="obj" subtree2="right_wrist_pitch_link" reduce="maxforce" data="found force" num="1" name="right_hand_cnt"/>
+
+        <!-- obj - floor  -->
+        <contact geom1="obj" body2="static" reduce="maxforce" data="found force" num="1" name="obj_static_cnt"/>
+
+        <!-- obj - collision  -->
+        <contact geom1="obj" geom2="left_thigh_collision" data="found" num="1" name="obj_left_thigh_cnt"/>
+        <contact geom1="obj" geom2="right_thigh_collision" data="found" num="1" name="obj_right_thigh_cnt"/>
+
+        <!-- hands position and quat -->
+        <!-- <framepos objtype="site" objname="right_palm" name="right_hand_pos"/>
+        <framepos objtype="site" objname="left_palm" name="left_hand_pos"/>
+        <framequat name="left_hand_orientation" objtype="site" objname="left_palm"/>
+        <framequat name="right_hand_orientation" objtype="site" objname="right_palm"/> -->
+        <framepos objtype="site" objname="right_palm" name="right_hand_pos" reftype="geom" refname="obj"/>
+        <framepos objtype="site" objname="left_palm" name="left_hand_pos" reftype="geom" refname="obj"/>
+        <framequat name="left_hand_orientation" objtype="site" objname="left_palm" reftype="geom" refname="obj"/>
+        <framequat name="right_hand_orientation" objtype="site" objname="right_palm" reftype="geom" refname="obj"/>
+        <!-- <framepos objtype="site" objname="right_palm" name="right_hand_pos" reftype="site" refname="imu_in_torso"/>
+        <framepos objtype="site" objname="left_palm" name="left_hand_pos" reftype="site" refname="imu_in_torso"/>
+        <framequat name="left_hand_orientation" objtype="site" objname="left_palm" reftype="site" refname="imu_in_torso"/>
+        <framequat name="right_hand_orientation" objtype="site" objname="right_palm" reftype="site" refname="imu_in_torso"/> -->
+
+        <!-- obj position and orientation  -->
+        <framepos objtype="geom" objname="obj" name="global_pos_obj"/>
+        <framequat objtype="geom" objname="obj" name="global_quat_obj"/>
+
+
         <!-- feet contact -->
         <contact geom1="floor" geom2="left_foot1_collision" reduce="maxforce" data="found force" num="1" name="left_foot1"/>
         <contact geom1="floor" geom2="left_foot2_collision" reduce="maxforce" data="found force" num="1" name="left_foot2"/>
@@ -39,11 +69,6 @@
         <framequat objtype="site" objname="right_foot" name="right_foot_quat"/>
         <framequat objtype="site" objname="left_foot" name="left_foot_quat"/>
 
-        <!-- hands pos and quat -->
-        <framepos name="left_hand_pos" objtype="site" objname="left_palm"/>
-        <framequat name="left_hand_orientation" objtype="site" objname="left_palm"/>
-        <framepos name="right_hand_pos" objtype="site" objname="right_palm"/>
-        <framequat name="right_hand_orientation" objtype="site" objname="right_palm"/>
 
         <!-- pelvis + torso pos and vel -->
         <framepos objtype="site" objname="imu_in_torso" name="global_pos_torso"/>
