@@ -63,7 +63,7 @@ class G1PickPlaceTableRef(TaskMjRef):
             G1.Sensors.TORSO_POS,
             G1.Sensors.TORSO_QUAT,
             *G1.Sensors.HAND_CONTACTS,
-            *G1.Sensors.OBJ_TABLE_CONTACT,
+            *G1.Sensors.OBJ_STATIC_CONTACT,
             *G1.Sensors.HAND_POS,
             *G1.Sensors.HAND_QUAT,
         ]
@@ -136,7 +136,7 @@ class G1PickPlaceTableRef(TaskMjRef):
         )
 
         # # --- Contact plan hands ---
-        self.set_contact_sensor_id(G1.Sensors.HAND_CONTACTS + G1.Sensors.OBJ_TABLE_CONTACT, [0, 4, 8]) # For plotting
+        self.set_contact_sensor_id(G1.Sensors.HAND_CONTACTS + G1.Sensors.OBJ_STATIC_CONTACT, [0, 4, 8]) # For plotting
 
         self.contact_plan = np.zeros((self.T, 3))
         # Hands always in contact
@@ -156,7 +156,7 @@ class G1PickPlaceTableRef(TaskMjRef):
             weights=cfg.contact_hands_weight,
         )
         self.add_sensor_cost(
-            G1.Sensors.OBJ_TABLE_CONTACT,
+            G1.Sensors.OBJ_STATIC_CONTACT,
             hamming_dist_nb_mod,
             sub_idx_sensor=[0],
             ref_values=self.contact_plan[:-1, -1],

@@ -219,7 +219,7 @@ class G1PickupTable(TaskMj):
         self.contact_plan_obj[node_lift_obj:, :] = 0
 
         self.add_sensor_cost(
-            G1.Sensors.OBJ_TABLE_CONTACT,
+            G1.Sensors.OBJ_STATIC_CONTACT,
             hamming_dist_nb,
             sub_idx_sensor=[0],
             ref_values=self.contact_plan_obj[:-1],

@@ -24,7 +24,7 @@ class Sensors:
         "left_hand_cnt",
         "right_hand_cnt",
     ]
-    OBJ_TABLE_CONTACT = ["obj_static_cnt"]
+    OBJ_STATIC_CONTACT = ["obj_static_cnt"]
     OBJ_FLOOR_CONTACT = ["obj_static_cnt"]
     OBJ_THIGH_COLLISION = [
         "obj_right_thigh_cnt",
