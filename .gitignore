@@ -8,7 +8,10 @@ echo "mjlab/" >> .gitignore
 echo "rsl_rl/" >> .gitignore
 echo "mujoco_warp/" >> .gitignore
 echo "**/.git/" >> .gitignore
-
+echo "sbto/data/*.npz" >> .gitignore
+echo "sbto/data/*.csv" >> .gitignore
+echo "sbto/data/*.mp4" >> .gitignore
+echo "*.npy" >> .gitignore
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
