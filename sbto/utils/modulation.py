@@ -13,12 +13,14 @@ def beta_mod(it: int, Nit: int, T: int, b_start: float = 1.5, **kwargs):
     return mod
 
 def step_mod(it: int, Nit: int, T: int, Nknots: int, **kwargs):
-    n_step = np.int32(np.linspace(0, 1 , Nit+1) * (Nknots-1))[it] + 1
+    # Start with 2 knots
+    n_knots_to_opt = np.int32(np.round(it / Nit * (Nknots-2)) + 1)
+    t_knots = np.int32(np.ceil(np.linspace(0, 1, Nknots, endpoint=True) * T))
+    t_knots[-1] -= 1
+    t_end = t_knots[n_knots_to_opt] + 1
+
     mod = np.zeros(T)
-    i = np.int32(np.linspace(0, T, Nknots, endpoint=True))[n_step]
-    mod[:i] = 1.
-    mod /= np.sum(mod)
-    mod *= T
+    mod[:t_end] = 1.
     return mod
 
 def mpc_mod(it: int, Nit: int, T: int, Nknots: int, **kwargs):
@@ -45,16 +47,16 @@ def step_decayed_mod(it: int, Nit: int, T: int, Nknots: int, decay_rate: float =
     return mod
 
 def step_mod_transition(it: int, Nit: int, T: int, Nknots: int, **kwargs):
-    n_step = np.int32(np.linspace(0, 1 , Nit+1) * (Nknots-1))[it] + 1
+    # Start with 2 knots
+    n_knots_to_opt = np.int32(np.round(it / Nit * (Nknots-2)) + 1)
+    t_knots = np.int32(np.ceil(np.linspace(0, 1, Nknots, endpoint=True) * T))
+    t_end = t_knots[n_knots_to_opt]
+
     mod = np.zeros(T)
-    i = np.int32(np.linspace(0, T, Nknots, endpoint=True))[n_step]
-    mod[:i] = 1.
+    mod[:t_end] = 1.
 
-    if n_step < Nknots - 1:
-        i_transition = np.int32(np.linspace(0, T, Nknots, endpoint=True))[n_step+1]
-        v = (it % (Nit // Nknots)) / Nknots
-        mod[i:i_transition] = (it % (Nknots)) / Nknots
+    if n_knots_to_opt < Nknots - 1:
+        t_trans = np.int32(np.linspace(0, T, Nknots, endpoint=True))[n_knots_to_opt+1]
+        mod[t_end:t_trans] = (it % (Nknots)) / Nknots
 
-    mod /= np.sum(mod)
-    mod *= T
     return mod
