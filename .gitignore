@@ -12,6 +12,8 @@ echo "sbto/data/*.npz" >> .gitignore
 echo "sbto/data/*.csv" >> .gitignore
 echo "sbto/data/*.mp4" >> .gitignore
 echo "*.npy" >> .gitignore
+sbto/data/*.npz
+*.npz
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
