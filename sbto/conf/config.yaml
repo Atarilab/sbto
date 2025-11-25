@@ -3,14 +3,22 @@ defaults:
   - solver: cem
   - _self_
 
+# Description (as a suffix to rundir)
 description: ""
+# Save figures
 save_fig: true
+# If a reference is provided, initial knots are taken from the reference
 init_knots_from_ref: false
-multiple_shooting: false
-warm_start_rundir: ""
 
-### Data processing
-data:
-  dataset_dir: ""
-  N_top: 1000
-  min_it: 0
+### Warm starting
+warm_start:
+  # Start from solver state in <rundir>
+  rundir: ""
+  # Warm start with multiple shooting (shooting nodes from referece)
+  multiple_shooting: false
+  # Warm start with cumulative optimization of the knots
+  cumul_opt: false
+  # Reset sigma0 to defaut when warm starting (take only the mean)
+  reset_sigma0: false
+  # Iterations of warm start (if 0, same number as in solver config)
+  N_it: 0

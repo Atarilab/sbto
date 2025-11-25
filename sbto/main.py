@@ -3,12 +3,13 @@ from hydra.utils import instantiate
 from typing import Optional
 import copy
 import os
+import numpy as np
 
 from sbto.sim.sim_base import SimRolloutBase
 from sbto.tasks.task_base import OCPBase
 from sbto.tasks.task_mj_ref import TaskMjRef
 from sbto.solvers.solver_base import SamplingBasedSolver, SolverState
-from sbto.run.optimize import optimize_single_shooting, optimize_mutiple_shooting
+from sbto.run.optimize import optimize_single_shooting, optimize_mutiple_shooting, optimize_cumulative_opt
 from sbto.run.save import save_results, get_final_state_from_rundir
 
 def optimize_and_save_data(
@@ -20,6 +21,7 @@ def optimize_and_save_data(
     save_fig: bool = True,
     solver_state_0: Optional[SolverState] = None,
     multiple_shooting: bool = False,
+    cumul_opt: bool = False,
     ) -> None:
 
     # Save initial state
@@ -33,6 +35,8 @@ def optimize_and_save_data(
         if not isinstance(task, TaskMjRef):
             raise ValueError("Task should be an instance of TaskMjRef (with reference)")
         optimizer_fn = optimize_mutiple_shooting
+    elif cumul_opt:
+        optimizer_fn = optimize_cumulative_opt
     else:
         optimizer_fn = optimize_single_shooting
     
@@ -69,31 +73,85 @@ def get_initial_state_solver_from_ref(sim, task, solver):
     qpos_from_ref = task.ref.act_qpos[sim.t_knots, :]
     pd_knots_from_ref = sim.scaling.inverse(qpos_from_ref).reshape(-1)
     solver_state_0 = solver.init_state(mean=pd_knots_from_ref)
-    return solver_state_0   
+    return solver_state_0
+
+def get_warm_start_state_solver(cfg, sim, task, solver) -> SolverState:
+    # Set initial solver state
+    solver_state_0 = None
+    if cfg.init_knots_from_ref and isinstance(task, TaskMjRef):
+        solver_state_0 = get_initial_state_solver_from_ref(sim, task, solver)
+
+    if cfg.warm_start.rundir and os.path.exists(cfg.warm_start.rundir):
+        solver_state_0 = get_final_state_from_rundir(cfg.warm_start.rundir, solver)
+
+        if cfg.warm_start.reset_sigma0:
+            solver.init_state()
+            solver_state_0.cov += solver.state.cov
+
+        # Reset min cost/best
+        solver_state_0.min_cost = np.inf
+        solver_state_0.min_cost_all = np.inf
+        D = len(solver_state_0.mean)
+        solver_state_0.best = np.empty(D)
+        solver_state_0.best_all = np.empty(D)
+
+    return solver_state_0
 
 @hydra.main(version_base=None, config_path="conf", config_name="config")
 def main(cfg):
     hydra_rundir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
 
     sim, task, solver = instantiate_from_cfg(cfg)
+    solver_state_0 = get_warm_start_state_solver(cfg, sim, task, solver)
 
-    # Set initial solver state
-    state_solver_0 = None
-    if cfg.init_knots_from_ref and isinstance(task, TaskMjRef):
-        state_solver_0 = get_initial_state_solver_from_ref(sim, task, solver)
+    if cfg.warm_start.multiple_shooting:
+        _N_it = cfg.solver.cfg.N_it
+        if cfg.warm_start.N_it > 0:
+            solver.cfg.N_it = cfg.warm_start.N_it
 
-    elif cfg.warm_start_rundir and os.path.exists(cfg.warm_start_rundir):
-        state_solver_0 = get_final_state_from_rundir(cfg.warm_start_rundir, solver)
+        description = cfg.description + "warm_start_ms"
+        rundir = optimize_and_save_data(
+            sim,
+            task,
+            solver,
+            description,
+            hydra_rundir,
+            cfg.save_fig,
+            solver_state_0=solver_state_0,
+            multiple_shooting=True
+        )
+        cfg.warm_start.rundir = rundir
+        solver.cfg.N_it = _N_it
 
-    optimize_and_save_data(
+    if cfg.warm_start.cumul_opt:
+        _N_it = cfg.solver.cfg.N_it
+        if cfg.warm_start.N_it > 0:
+            solver.cfg.N_it = cfg.warm_start.N_it
+
+        description = cfg.description + "warm_start_cumul_opt"
+        rundir = optimize_and_save_data(
+            sim,
+            task,
+            solver,
+            description,
+            hydra_rundir,
+            cfg.save_fig,
+            solver_state_0=solver_state_0,
+            cumul_opt=True
+        )
+        cfg.warm_start.rundir = rundir
+        solver.cfg.N_it = _N_it
+    
+    solver_state_0 = get_warm_start_state_solver(cfg, sim, task, solver)
+
+    rundir = optimize_and_save_data(
         sim,
         task,
         solver,
         cfg.description,
         hydra_rundir,
         cfg.save_fig,
-        state_solver_0,
-        cfg.multiple_shooting
+        solver_state_0,
     )
     
 if __name__ == "__main__":

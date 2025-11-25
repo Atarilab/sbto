@@ -8,6 +8,7 @@ import numpy.typing as npt
 from dataclasses import asdict
 from typing import List
 import copy
+import mujoco
 
 from sbto.tasks.task_mj import TaskMj
 from sbto.sim.sim_base import SimRolloutBase
@@ -28,6 +29,7 @@ SOLVER_STATE_NAME = "solver_state"
 INITIAL_SOLVER_STATE_SUFFIX = "0"
 FINAL_SOLVER_STATE_SUFFIX = "final"
 HYDRA_CFG = ".hydra"
+MJ_MODEL_NAME = "mj_model"
 
 def get_date_time() -> str:
     now = datetime.now()
@@ -183,6 +185,10 @@ def copy_hydra_config(hydra_rundir: str, dst_path: str):
     if os.path.exists(hydra_cfg_dir):
         shutil.copytree(hydra_cfg_dir, f"{dst_path}/{HYDRA_CFG}")
 
+def save_mj_model(dir_path: str, mj_model: mujoco.MjModel):
+    file_name = os.path.join(dir_path, f"{MJ_MODEL_NAME}.xml")
+    mujoco.mj_saveLastXML(file_name, mj_model)
+
 def save_results(
     sim: SimMjRollout,
     task: OCPBase,
@@ -194,13 +200,14 @@ def save_results(
     hydra_rundir: str = "",
     save_fig: bool = True,
     multiple_shooting: bool = False,
-    ) -> None:
+    ) -> str:
     task_name = task.__class__.__name__
     result_dir = create_dirs(task_name, description)
 
-    print(f"[{description or 'Unnamed'}] Best cost: {solver_state_final.min_cost_all}")
+    save_mj_model(result_dir, sim.mj_scene.mj_model)
 
-    best_knots = solver_state_final.best
+    print(f"[{description or 'Unnamed'}] Best cost: {solver_state_final.min_cost_all}")
+    best_knots = solver_state_final.best_all
     # Get best traj
     if multiple_shooting:
         x_shooting = task.ref.x[sim.t_knots]
@@ -235,3 +242,5 @@ def save_results(
             x_traj,
             save_path=result_dir,
         )
+
+    return result_dir
