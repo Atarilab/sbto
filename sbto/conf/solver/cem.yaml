@@ -4,6 +4,7 @@ cfg:
   N_samples: 1024
   N_it: 100
   elite_frac: 0.05
+  keep_frac: 0.0
   alpha_mean: 0.95
   alpha_cov: 0.15
   std_incr: 0.

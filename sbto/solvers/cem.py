@@ -20,6 +20,7 @@ class ConfigCEM(ConfigSolver):
     alpha_mean: float = 0.9
     alpha_cov: float = 0.1
     std_incr: float = 0.
+    keep_frac: float = 0.
     _target_:str = "sbto.solvers.cem.CEM"
     
 class CEM(SamplingBasedSolver):
@@ -29,10 +30,28 @@ class CEM(SamplingBasedSolver):
     def __init__(self, D, cfg: ConfigCEM):
         super().__init__(D, cfg)
         self.N_elite = int(cfg.elite_frac * cfg.N_samples)
+        self.N_keep = int(self.N_elite * cfg.keep_frac)
         # small diagonal regularization for covariance
         self.Id = np.diag(np.full(self.D, cfg.std_incr))
         self.reg_cov = cfg.std_incr > 0.
+        
+        self.first_it = True
+        if self.N_keep > 0:
+            self.samples = np.empty((cfg.N_samples, D))
 
+    def get_samples(self) -> Array:
+        """
+        Get samples from distribution parametrized
+        by the current state.
+        """
+        samples = super().get_samples()
+
+        if self.N_keep > 0 and not self.first_it:
+            self.samples[self.N_keep:] = samples[self.N_keep:]
+            return self.samples
+        else:
+            return samples
+        
     def get_elites(self, samples: Array, costs: Array) -> Tuple[Array, IntArray]:
         """
         Returns (elites, elite_idx)
@@ -60,8 +79,12 @@ class CEM(SamplingBasedSolver):
         """
         elites, elites_idx = self.get_elites(samples, costs)
         self.update_distrib_param(self.state, elites)
+        if self.N_keep > 0:
+            self.samples[:self.N_keep] = elites[:self.N_keep]
 
         arg_min = elites_idx[0]
         best = samples[arg_min]
         min_cost = costs[arg_min]
         self.update_min_cost_best(self.state, min_cost, best)
+        
+        self.first_it = False
