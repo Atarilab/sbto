@@ -40,7 +40,7 @@ class MultivariateNormal(SamplerAbstract):
                 cov=cov,
                 size=(self.N_samples,),
                 check_valid="ignore",
-                method="cholesky"
+                method="eigh"
             )
         else:
             sampler = qmc.MultivariateNormalQMC(
