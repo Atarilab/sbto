@@ -105,6 +105,10 @@ def main(cfg):
     solver_state_0 = get_warm_start_state_solver(cfg, sim, task, solver)
 
     if cfg.warm_start.multiple_shooting:
+        _N_it = cfg.solver.cfg.N_it
+        if cfg.warm_start.N_it > 0:
+            solver.cfg.N_it = cfg.warm_start.N_it
+
         description = cfg.description + "warm_start_ms"
         rundir = optimize_and_save_data(
             sim,
@@ -117,8 +121,13 @@ def main(cfg):
             multiple_shooting=True
         )
         cfg.warm_start.rundir = rundir
+        solver.cfg.N_it = _N_it
 
     if cfg.warm_start.cumul_opt:
+        _N_it = cfg.solver.cfg.N_it
+        if cfg.warm_start.N_it > 0:
+            solver.cfg.N_it = cfg.warm_start.N_it
+
         description = cfg.description + "warm_start_cumul_opt"
         rundir = optimize_and_save_data(
             sim,
@@ -131,6 +140,7 @@ def main(cfg):
             cumul_opt=True
         )
         cfg.warm_start.rundir = rundir
+        solver.cfg.N_it = _N_it
     
     solver_state_0 = get_warm_start_state_solver(cfg, sim, task, solver)
 
