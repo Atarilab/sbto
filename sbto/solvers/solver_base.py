@@ -41,13 +41,33 @@ class SamplingBasedSolver(ABC):
     Abstract base class for sampling-based solvers.
     """
     def __init__(self,
-                 D : int, cfg : ConfigSolver):
+                 D : int,
+                 cfg : ConfigSolver
+                 ):
         self.D = D
         self.cfg = cfg
 
         self.sampler = self._get_sampler()
         self.state = self.init_state()
 
+        # Mask to optimize only some variables, used for incremental optimization
+        self._mask_mean = np.ones((self.D,))
+        self._mask_cov = np.ones((self.D, self.D))
+
+    def opt_first_dim(self, n_dim: int = -1):
+        """
+        Set masks to optimize only the first <n_dim> variables.
+        """
+        if n_dim == -1:
+            self._mask_mean[:] = 1.
+            self._mask_cov[:, :] = 1.
+        else:
+            self._mask_mean[:n_dim] = 1.
+            self._mask_mean[n_dim:] = 0.
+            self._mask_cov[:n_dim, :n_dim] = 1.
+            self._mask_cov[n_dim:, :] = 0.
+            self._mask_cov[:, n_dim:] = 0.
+    
     def _get_sampler(self) -> SamplerAbstract:
         sampler_name = self.cfg.sampler
         if not sampler_name in AVAILABLE_SAMPLERS.keys():
@@ -78,6 +98,13 @@ class SamplingBasedSolver(ABC):
             min_cost=np.inf,
             min_cost_all=np.inf,
         )
+
+    @staticmethod
+    def reset_min_cost_best(state: SolverState):
+        state.min_cost = np.inf
+        state.min_cost_all = np.inf
+        state.best = np.empty_like(state.mean)
+        state.best_all = np.empty_like(state.mean)
 
     def update_min_cost_best(
             self,

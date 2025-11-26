@@ -67,8 +67,8 @@ class CEM(SamplingBasedSolver):
         if self.reg_cov:
             cov += self.Id
         # Update state params with exponential smoothing
-        state.mean += self.cfg.alpha_mean * (mean - state.mean)
-        state.cov += self.cfg.alpha_cov * (cov - state.cov)
+        state.mean += self._mask_mean * self.cfg.alpha_mean * (mean - state.mean)
+        state.cov += self._mask_cov * self.cfg.alpha_cov * (cov - state.cov)
 
     def update(self,
                samples: Array,
