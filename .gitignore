@@ -4,6 +4,7 @@ runs/
 datasets/
 outputs/
 MUJOCO_LOG.TXT
+robot-object/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
