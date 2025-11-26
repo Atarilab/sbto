@@ -3,7 +3,7 @@ _target_: sbto.tasks.g1.move_large_box_ref.G1MoveLargeBoxObjRef
 cfg:
   _target_: sbto.tasks.g1.move_large_box_ref.ConfigG1MoveLargeBoxObjRef
 
-  ref_motion_path: "./sbto/tasks/g1/motion/sub3_largebox_005_original.pkl"
+  ref_motion_path: "./sbto/tasks/g1/motion/sub3_largebox_005_original.npz"
   t0: 0. #0.22
   speedup: 1.25
   z_offset: 0.01

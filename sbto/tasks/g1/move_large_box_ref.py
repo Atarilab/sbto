@@ -218,7 +218,7 @@ class G1MoveLargeBoxObjRef(TaskMjRef):
         self.contact_plan = np.zeros((self.T, N_cnt), dtype=np.int32)
 
         for i, foot_cnt in enumerate(G1.Sensors.FEET_CONTACTS):
-            self.contact_plan[:, i] = self.ref.data[foot_cnt][:T, 0]
+            self.contact_plan[:, i] = self.ref.sensor_data[foot_cnt][:T, 0]
         self.contact_plan[self.contact_plan > 1] = 1
 
         self.add_sensor_cost(
@@ -237,7 +237,7 @@ class G1MoveLargeBoxObjRef(TaskMjRef):
 
         # --- Contact plan hands/obj ---
         # Contact plan of the obj from the ref
-        self.contact_plan[:, N_feet_cnt] = self.ref.data[G1.Sensors.OBJ_FLOOR_CONTACT[0]][:T, 0]
+        self.contact_plan[:, N_feet_cnt] = self.ref.sensor_data[G1.Sensors.OBJ_FLOOR_CONTACT[0]][:T, 0]
         # Contact plan of the hands slightly offset
         nodes_lifted = np.where(self.contact_plan[:, N_feet_cnt:N_feet_cnt+N_obj_cnt] == 0)[0]
         node_grasp_hands = nodes_lifted[0] - int(cfg.t_hand_cnt_before_lift / dt)
