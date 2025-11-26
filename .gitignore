@@ -3,6 +3,7 @@ plots/
 runs/
 datasets/
 outputs/
+multirun/
 MUJOCO_LOG.TXT
 robot-object/
 
