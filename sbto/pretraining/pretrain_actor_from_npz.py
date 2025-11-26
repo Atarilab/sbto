@@ -147,7 +147,7 @@ class ActorMLP(nn.Module):
     Matches MJLAB actor head: 3x256 ELU MLP -> num_actions outputs.
     Uses EmpiricalNormalization on inputs to mirror MJLAB behavior.
     """
-    def __init__(self, obs_dim: int, num_actions: int, hidden=(256, 256, 256), activation="elu"):
+    def __init__(self, obs_dim: int, num_actions: int, hidden=(512, 256, 128), activation="elu"):
         super().__init__()
         self.norm = EmpiricalNormalization(obs_dim) #normalize inputs and keep updating during training
         self.mlp = MLP(obs_dim, num_actions, hidden, activation)
@@ -238,7 +238,7 @@ def main():
     model = ActorMLP(
     obs_dim=obs_dim,
     num_actions=num_actions,
-    hidden=(256, 256, 256),
+    hidden=(512, 256, 128),
     activation="elu",
     ).to(device)
     
@@ -263,7 +263,7 @@ def main():
                 "actor_state_dict": model.state_dict(),     # includes norm + mlp
                 "obs_dim": obs_dim,
                 "num_actions": num_actions,
-                "hidden": (256, 256, 256),
+                "hidden":  (512, 256, 128),
                 "activation": "elu",
                 "val_mse": best_val,
             }, save_path)
@@ -275,7 +275,7 @@ def main():
         "actor_state_dict": model.state_dict(),
         "obs_dim": obs_dim,
         "num_actions": num_actions,
-        "hidden": (256, 256, 256),
+        "hidden":  (512, 256, 128),
         "activation": "elu",
         "val_mse": best_val,
     }, final_path)
