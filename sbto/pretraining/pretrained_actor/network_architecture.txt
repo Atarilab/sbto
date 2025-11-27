@@ -1,7 +1,7 @@
 ActorMLP(
   (norm): EmpiricalNormalization()
   (mlp): MLP(
-    (0): Linear(in_features=160, out_features=512, bias=True)
+    (0): Linear(in_features=166, out_features=512, bias=True)
     (1): ELU(alpha=1.0)
     (2): Linear(in_features=512, out_features=256, bias=True)
     (3): ELU(alpha=1.0)

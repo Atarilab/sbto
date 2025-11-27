@@ -31,8 +31,6 @@ def quat_to_6d(q_np: np.ndarray) -> np.ndarray:
 class SbtoNpzDataset(Dataset):
     """
     Builds all 8 MJLAB policy inputs from a rollout npz with shape (N_traj, T, ·).
-
-
     """
     def __init__(self, npz_path: str):
         super().__init__()
@@ -59,14 +57,12 @@ class SbtoNpzDataset(Dataset):
         raw_base_ang = raw_base_linang[..., 3:]  # (N, T, 3)
 
         
-        # last_action[t] = act_pos[t-1], last_action[0] = 0
+        # last_action[t] = act_pos[t-1]
         raw_last_action = np.zeros_like(raw_act_pos)   # (N, T, A)
         raw_last_action[:, 1:, :] = raw_act_pos[:, :-1, :]
 
-        # anchor_pos_b: (N, T, 3) in world frame
         raw_anchor_pos_b = data["anchor_pos_b"].astype(np.float32)      # (N, T, 3)
 
-        # anchor_ori_b: (N, T, 4) quaternion (w, x, y, z) -> convert to 6D
         raw_anchor_quat_b = data["anchor_ori_b"].astype(np.float32)     # (N, T, 4)
         raw_anchor_ori_b = quat_to_6d(raw_anchor_quat_b)                # (N, T, 6)
 
@@ -92,8 +88,8 @@ class SbtoNpzDataset(Dataset):
         self.last_action   = obs_last_action.reshape(N * T_eff, A)
         self.anchor_pos_b  = obs_anchor_pos_b.reshape(N * T_eff, 3)
         self.anchor_ori_b  = obs_anchor_ori_b.reshape(N * T_eff, 6)
-
-        # generated_commands 
+        self.object_global_pos = self.anchor_pos_b.copy()  # (N*(T-1), 3)
+        self.object_ori_error = np.zeros((N * T_eff, 6), dtype=np.float32)
         self.commands = np.concatenate([self.act_pos, self.act_vel], axis=-1)  # (N*(T-1), 2A)
         
         # Targets at time t: control u_t
@@ -116,6 +112,8 @@ class SbtoNpzDataset(Dataset):
             "joint_pos":      torch.from_numpy(self.act_pos[idx]),       # (A,)  at time t
             "joint_vel":      torch.from_numpy(self.act_vel[idx]),       # (A,)  at time t
             "last_action":    torch.from_numpy(self.last_action[idx]),   # (A,)
+            "object_ori_error":  torch.from_numpy(self.object_ori_error[idx]),
+
         }
         target = torch.from_numpy(self.targets[idx])                      # (A,) = joint_pos at t+1
         return obs, target
@@ -135,8 +133,10 @@ def collate_to_actor_obs(batch):
     jpos  = torch.stack([b[0]["joint_pos"]    for b in batch], dim=0)
     jvel  = torch.stack([b[0]["joint_vel"]    for b in batch], dim=0)
     last  = torch.stack([b[0]["last_action"]  for b in batch], dim=0)
+    err_ori= torch.stack([b[0]["object_ori_error"] for b in batch], dim=0)
 
-    actor_obs = torch.cat([cmd, posb, orib, blin, bang, jpos, jvel, last], dim=-1)
+
+    actor_obs = torch.cat([cmd, posb, orib, blin, bang, jpos, jvel, last, err_ori], dim=-1)
     targets   = torch.stack([b[1] for b in batch], dim=0)
     return actor_obs, targets
 
@@ -144,8 +144,8 @@ def collate_to_actor_obs(batch):
 
 class ActorMLP(nn.Module):
     """
-    Matches MJLAB actor head: 3x256 ELU MLP -> num_actions outputs.
-    Uses EmpiricalNormalization on inputs to mirror MJLAB behavior.
+    Matches MJLAB actor head: 512, 256, 128 ELU MLP 
+    Uses EmpiricalNormalization on inputs like in MJLAB 
     """
     def __init__(self, obs_dim: int, num_actions: int, hidden=(512, 256, 128), activation="elu"):
         super().__init__()
@@ -167,18 +167,16 @@ def train_epoch(model, loader, optim, device):
     for actor_obs, targets in loader:
         actor_obs = actor_obs.to(device)
         targets = targets.to(device)
-        # Update normalizer 
         model.norm.update(actor_obs)
-
         pred = model(actor_obs)  # (B, A)
         loss = nn.functional.mse_loss(pred, targets) 
         optim.zero_grad(set_to_none=True)
         loss.backward()
         optim.step()
 
-        total += loss.item() * actor_obs.size(0) #accumulate total loss over all batches
+        total += loss.item() * actor_obs.size(0) 
         n += actor_obs.size(0)
-    return total / max(1, n) #average loss across all samples
+    return total / max(1, n) #average loss 
 
 
 @torch.no_grad()
@@ -218,7 +216,7 @@ def main():
     A = ds.act_pos.shape[1]          # number of joints (for obs_dim)
     num_actions = ds.targets.shape[1]  # dimension of u
 
-    obs_dim = (2 * A) + 3 + 6 + 3 + 3 + A + A + A  # unchanged
+    obs_dim = (2 * A) + 3 + 6 + 3 + 3 + A + A + A + 6  
     
     # Split
     val_len = int(len(ds) * args.val_split)
