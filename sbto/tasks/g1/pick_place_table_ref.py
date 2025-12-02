@@ -69,7 +69,7 @@ class G1PickPlaceTableRef(TaskMjRef):
             *G1.Sensors.HAND_POS,
             *G1.Sensors.HAND_QUAT,
         ]
-        self.ref.add_sensor_data(sim.mj_scene.mj_model, sensor_names)
+        self.ref.add_sensor_data(sensor_names)
         sim.set_initial_state(self.ref.x0)
         q_min = sim.mj_scene.q_min
         q_max = sim.mj_scene.q_max

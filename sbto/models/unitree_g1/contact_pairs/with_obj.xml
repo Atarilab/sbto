@@ -17,6 +17,7 @@
     <!-- foot - linkage brace -->
     <pair name="left_foot_right_linkage_brace" geom1="left_foot_box_collision" geom2="right_linkage_brace_collision" condim="1"/>
     <pair name="right_foot_left_linkage_brace" geom1="right_foot_box_collision" geom2="left_linkage_brace_collision" condim="1"/>
+    <pair name="linkage_brace" geom1="right_linkage_brace_collision" geom2="left_linkage_brace_collision" condim="1"/>
     <!-- hands - hips -->
     <!-- <pair name="left_hand_left_hip" geom1="left_hand_collision" geom2="left_hip_collision" condim="1"/> -->
     <!-- <pair name="right_hand_right_hip" geom1="right_hand_collision" geom2="right_hip_collision" condim="1"/> -->

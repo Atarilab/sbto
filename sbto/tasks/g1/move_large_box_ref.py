@@ -90,7 +90,7 @@ class G1MoveLargeBoxObjRef(TaskMjRef):
             G1.Sensors.TORSO_LINVEL,
             G1.Sensors.TORSO_LINVEL,
         ]
-        self.ref.add_sensor_data(sim.mj_scene.mj_model, sensor_names)
+        self.ref.add_sensor_data(sensor_names)
         sim.set_initial_state(self.ref.x0)
         margin = 0.2
         q_min = np.min(self.ref.act_qpos, axis=0) - margin

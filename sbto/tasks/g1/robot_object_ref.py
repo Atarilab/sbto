@@ -90,7 +90,7 @@ class G1RobotObjRef(TaskMjRef):
             G1.Sensors.TORSO_LINVEL,
             G1.Sensors.TORSO_LINVEL,
         ]
-        self.ref.add_sensor_data(sim.mj_scene.mj_model, sensor_names)
+        self.ref.add_sensor_data(sensor_names)
         sim.set_initial_state(self.ref.x0)
         q_min = sim.mj_scene.q_min
         q_max = sim.mj_scene.q_max
@@ -237,14 +237,24 @@ class G1RobotObjRef(TaskMjRef):
         )
 
         # --- Contact plan hands/obj ---
+        contact_hand = np.zeros((self.T, len(G1.Sensors.HAND_CONTACTS)), dtype=np.int32)
+        for i, hand_cnt in enumerate(G1.Sensors.HAND_CONTACTS):
+            contact_hand[:, i] = self.ref.sensor_data[hand_cnt][:T, 0]
+
         # Contact plan of the obj from the ref
         self.contact_plan[:, N_feet_cnt] = self.ref.sensor_data[G1.Sensors.OBJ_FLOOR_CONTACT[0]][:T, 0]
         # Contact plan of the hands slightly offset
         nodes_lifted = np.where(self.contact_plan[:, N_feet_cnt:N_feet_cnt+N_obj_cnt] == 0)[0]
+        hand_cnt = np.where(contact_hand > 0)[0]
+
         if len(nodes_lifted) > 0:
             node_grasp_hands = nodes_lifted[0] - int(cfg.t_hand_cnt_before_lift / dt)
             node_release_hands = nodes_lifted[-1] + int(cfg.t_hand_cnt_after_place / dt)
             self.contact_plan[node_grasp_hands:node_release_hands, N_feet_cnt+N_obj_cnt:] = 1
+
+        elif len(hand_cnt) > 0:
+            self.contact_plan[:, N_feet_cnt+N_obj_cnt:] = contact_hand
+
         self.contact_plan[self.contact_plan > 1] = 1
 
 

@@ -2,7 +2,7 @@
   <compiler angle="radian" meshdir="assets"/>
 
   <option iterations="8" ls_iterations="8" timestep="0.01" integrator="implicitfast">
-    <flag eulerdamp="disable"/>
+    <!-- <flag eulerdamp="disable"/> -->
   </option>
 
   <default>

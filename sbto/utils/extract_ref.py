@@ -230,11 +230,7 @@ class ReferenceMotion:
 
         self.extra = T_needed - T
 
-        # Determine dt (use last interval)
-        if T >= 2:
-            dt = self.time[-1] - self.time[-2]
-        else:
-            dt = self.mj_model.opt.timestep
+        dt = self.mj_model.opt.timestep
 
         # --- Extend time ---
         new_times = self.time[-1] + dt * np.arange(1, self.extra + 1)
@@ -258,7 +254,7 @@ class ReferenceMotion:
     # ------------------------------------------------------------
     # Sensor extraction
     # ------------------------------------------------------------
-    def add_sensor_data(self, mj_model, sensor_names: List[str]):
+    def add_sensor_data(self, sensor_names: List[str]):
         """
         Extracts sensor values for each timestep along the trajectory.
         The results are stored as attributes:
@@ -267,26 +263,26 @@ class ReferenceMotion:
         Sensor trajectory shape:
             [T, sensor_dim]
         """
-        data = mujoco.MjData(mj_model)
+        data = mujoco.MjData(self.mj_model)
 
         T = len(self.time)
-        nq = mj_model.nq
-        nv = mj_model.nv
+        nq = self.mj_model.nq
+        nv = self.mj_model.nv
 
         qpos_traj = self.x[:, :nq]
         qvel_traj = self.x[:, nq:]
 
         for sensor_name in sensor_names:
-            sid = mujoco.mj_name2id(mj_model, mujoco.mjtObj.mjOBJ_SENSOR, sensor_name)
-            adr = mj_model.sensor_adr[sid]
-            dim = mj_model.sensor_dim[sid]
+            sid = mujoco.mj_name2id(self.mj_model, mujoco.mjtObj.mjOBJ_SENSOR, sensor_name)
+            adr = self.mj_model.sensor_adr[sid]
+            dim = self.mj_model.sensor_dim[sid]
 
             out = np.zeros((T, dim))
 
             for t in range(T):
                 data.qpos[:] = qpos_traj[t]
                 data.qvel[:] = qvel_traj[t]
-                mujoco.mj_forward(mj_model, data)
+                mujoco.mj_forward(self.mj_model, data)
                 out[t] = data.sensordata[adr:adr + dim]
 
             self.sensor_data[sensor_name] = out
