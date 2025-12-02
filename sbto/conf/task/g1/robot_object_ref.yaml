@@ -37,7 +37,7 @@ cfg:
   # --- Hand pose cost ---
   hand_position: 20.0
   hand_orientation: 0.
-  hand_pos_z_mult: 2.
+  hand_pos_z_mult: 1.
 
   # --- Obj pose cost ---
   obj_pos_weight: 20.
@@ -60,28 +60,31 @@ mj_scene_ref:
     xml_sensors_path: sbto/models/unitree_g1/sensors/tracking_w_obj.xml
     xml_contact_pairs_path: sbto/models/unitree_g1/contact_pairs/with_obj.xml
     add_body:
-    
-        largebox:
-          type: body_only
-          pos: [0.4, 0.0, 0.1]
-          euler: [0., 0., 0.]
+  
+      largebox:
+        type: body_only
+        pos: [0.4, 0.0, 0.1]
+        euler: [0., 0., 0.]
 
-        obj:
-          type: box
-          pos: [0.0, 0.0, 0.0]
-          size: [0.18, 0.18, 0.18]
-          euler: [3.05, 0.11, 1.11]
-          mass: 0.6
-          rgba: [0.3, 0.3, 0.3, 1.0]
-          freejoint: true
-          bodyname: largebox
-          group: 1
-          priority: 1
-          condim: 3
-          contype: 0
-          conaffinity: 1
-          solref: [0.008, 1.0]
-          friction: [0.6, 0.005, 0.0001]
+      obj:
+        type: box
+        pos: [0., 0., 0.0105]
+        size: [0.22, 0.22, 0.18] # Using a larger box to detect hand contact
+        euler: [3.05, 0.11, 1.11]
+        mass: 0.6
+        rgba: [0.3, 0.3, 0.3, 1.0]
+        freejoint: true
+        bodyname: largebox
+        group: 1
+        priority: 1
+        condim: 3
+        contype: 0
+        conaffinity: 1
+        margin: 0.
+        gap: 0.
+        solref: [0.04, 1.]
+        solmix: 3.
+        friction: [0.7, 0.005, 0.0001]
 
 # === Rollout simulator ===
 sim:
@@ -108,24 +111,29 @@ sim:
       xml_contact_pairs_path: sbto/models/unitree_g1/contact_pairs/with_obj.xml
       add_body:
       
-          largebox:
-            type: body_only
-            pos: [0.4, 0.0, 0.1]
-            euler: [0., 0., 0.]
+        largebox:
+          type: body_only
+          pos: [0.4, 0.0, 0.1]
+          euler: [0., 0., 0.]
 
-          obj:
-            type: box
-            pos: [0.0, 0.0, 0.0]
-            size: [0.18, 0.18, 0.18]
-            euler: [3.05, 0.11, 1.11]
-            mass: 0.6
-            rgba: [0.3, 0.3, 0.3, 1.0]
-            freejoint: true
-            bodyname: largebox
-            group: 1
-            priority: 1
-            condim: 3
-            contype: 0
-            conaffinity: 1
-            solref: [0.008, 1.0]
-            friction: [0.6, 0.005, 0.0001]
+        obj:
+          type: box
+          # pos: [0., 0., 0.0655]
+          pos: [0., 0., 0.0105]
+          # size: [0.1, 0.1, 0.115]
+          size: [0.155, 0.155, 0.17]
+          euler: [3.05, 0.11, 1.11]
+          mass: 0.6
+          rgba: [0.3, 0.3, 0.3, 1.0]
+          freejoint: true
+          bodyname: largebox
+          group: 1
+          priority: 1
+          condim: 3
+          contype: 0
+          conaffinity: 1
+          margin: 0.0
+          gap: 0.0
+          solref: [0.04, 1.]
+          solmix: 3.
+          friction: [0.6, 0.001, 0.0001]

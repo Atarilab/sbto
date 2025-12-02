@@ -9,6 +9,8 @@ description: ""
 save_fig: true
 # Save video
 save_video: true
+# Save samples and costs from the optimization
+save_samples_costs: true
 # If a reference is provided, initial knots are taken from the reference
 init_knots_from_ref: false
 

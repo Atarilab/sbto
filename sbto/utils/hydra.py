@@ -63,6 +63,7 @@ def optimize_and_save_data(
         hydra_rundir,
         cfg.save_fig,
         cfg.save_video,
+        cfg.save_samples_costs,
         cfg.warm_start.multiple_shooting,
     )
 

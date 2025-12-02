@@ -201,6 +201,7 @@ def save_results(
     hydra_rundir: str = "",
     save_fig: bool = True,
     save_video: bool = True,
+    save_samples_costs: bool = True,
     multiple_shooting: bool = False,
     ) -> str:
     task_name = task.__class__.__name__
@@ -219,11 +220,13 @@ def save_results(
 
     save_trajectories(result_dir, t, x_traj, qdes_traj)
     N_it_samples = all_samples.shape[0]
-    save_all_samples_and_cost(result_dir, all_samples, all_costs[-N_it_samples:])
     copy_hydra_config(hydra_rundir, result_dir)
     if solver_state_0:
         save_solver_state(result_dir, solver_state_0, INITIAL_SOLVER_STATE_SUFFIX)
     save_solver_state(result_dir, solver_state_final, FINAL_SOLVER_STATE_SUFFIX)
+    
+    if save_samples_costs:
+        save_all_samples_and_cost(result_dir, all_samples, all_costs[-N_it_samples:])
 
     if save_fig:
         save_plots(

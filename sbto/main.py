@@ -22,7 +22,8 @@ def main(cfg):
         if not is_warm_start_only:
             cfg_ws.save_fig = False
             cfg_ws.save_video = False
-        
+            cfg_ws.save_samples_costs = False
+
         # Update solver Nit
         _N_it = cfg_ws.solver.cfg.N_it
         if cfg_ws.warm_start.N_it > 0:
