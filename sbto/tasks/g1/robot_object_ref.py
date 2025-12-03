@@ -243,17 +243,26 @@ class G1RobotObjRef(TaskMjRef):
 
         # Contact plan of the obj from the ref
         self.contact_plan[:, N_feet_cnt] = self.ref.sensor_data[G1.Sensors.OBJ_FLOOR_CONTACT[0]][:T, 0]
-        # Contact plan of the hands slightly offset
+        # Contact plan of the hands slightly offset from the object
         nodes_lifted = np.where(self.contact_plan[:, N_feet_cnt:N_feet_cnt+N_obj_cnt] == 0)[0]
+        time_lifted = np.sum(self.contact_plan[:, N_feet_cnt:N_feet_cnt+N_obj_cnt]) * dt
         hand_cnt = np.where(contact_hand > 0)[0]
+        time_hand_cnt = np.sum(contact_hand) * dt / contact_hand.shape[-1]
+        MIN_TIME_LIFTED = 0.4
+        MIN_TIME_HAND_CNT = 0.4
+        contact_hands_weight = cfg.contact_hands_weight
 
-        if len(nodes_lifted) > 0:
+        if len(nodes_lifted) > 0 and time_lifted > MIN_TIME_LIFTED:
             node_grasp_hands = nodes_lifted[0] - int(cfg.t_hand_cnt_before_lift / dt)
             node_release_hands = nodes_lifted[-1] + int(cfg.t_hand_cnt_after_place / dt)
             self.contact_plan[node_grasp_hands:node_release_hands, N_feet_cnt+N_obj_cnt:] = 1
-
-        elif len(hand_cnt) > 0:
+        
+        elif len(hand_cnt) > 0 and time_hand_cnt > MIN_TIME_HAND_CNT:
             self.contact_plan[:, N_feet_cnt+N_obj_cnt:] = contact_hand
+
+        # Contact are probably misdetected
+        else:
+            contact_hands_weight = 0.
 
         self.contact_plan[self.contact_plan > 1] = 1
 
@@ -270,7 +279,7 @@ class G1RobotObjRef(TaskMjRef):
             hamming_dist_nb,
             sub_idx_sensor=G1.Sensors.id_cnt_status_hands,
             ref_values=self.contact_plan[:, N_feet_cnt+N_obj_cnt:],
-            weights=cfg.contact_hands_weight,
+            weights=contact_hands_weight,
         )
 
         # --- Collision obj - thigh ---

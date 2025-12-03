@@ -35,7 +35,7 @@ cfg:
   contact_force_feet_weight: 1.0e-6
 
   # --- Hand pose cost ---
-  hand_position: 20.0
+  hand_position: 15.0
   hand_orientation: 0.
   hand_pos_z_mult: 1.
 
@@ -46,8 +46,8 @@ cfg:
   obj_w_weight: 2.
 
   # --- Obj/hands Contact cost ---
-  contact_obj_weight: 0.5
-  contact_hands_weight: 0.25
+  contact_obj_weight: 1.
+  contact_hands_weight: 0.5
 
   collision_obj_robot: 2.
 
@@ -78,7 +78,7 @@ mj_scene_ref:
       obj:
         type: box
         pos: [0., 0., 0.0105]
-        size: [0.22, 0.22, 0.18] # Using a larger box to detect hand contact
+        size: [0.2, 0.2, 0.18] # Using a larger box to detect hand contact
         euler: [3.05, 0.11, 1.11]
         mass: 0.6
         rgba: [0.3, 0.3, 0.3, 1.0]
@@ -154,4 +154,4 @@ sim:
           gap: 0.0
           solref: [0.04, 1.]
           solmix: 3.
-          friction: [0.6, 0.001, 0.0001]
+          friction: [0.6, 0.0001, 0.0001]
