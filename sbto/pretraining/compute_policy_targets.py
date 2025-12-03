@@ -53,7 +53,7 @@ def main():
     parser.add_argument(
         "--npz",
         type=str,
-        default="sbto/data/rollout_time_x_u_obs_traj.npz",
+        default="sbto/data/pretraining_actor_input.npz",
         help="Path to RL-format NPZ with keys x,u,o,c,...",
     )
     parser.add_argument(
@@ -97,7 +97,7 @@ def main():
     print("  u_nom   min/max :", float(u_nominal.min()), float(u_nominal.max()))
     print("  u_policy mean/std:", float(u_policy.mean()), float(u_policy.std()))
 
-    # Save back into NPZ with an extra key 'u_policy'
+    # Save back into NPZ with u_policy'
     out_dict = dict(data)  # copy all original arrays
     out_dict["u_policy"] = u_policy.astype(np.float32)
 

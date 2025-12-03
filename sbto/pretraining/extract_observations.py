@@ -10,7 +10,7 @@ def add_rl_obs_from_x(npz_path: str, xml_path: str) -> None:
 
     
     data = np.load(npz_path)
-    x = data["x"].astype(np.float32)          # (N, T, 84)
+    x = data["x"].astype(np.float32)          
 
     N, T, NX = x.shape
     nq, nv = mj_model.nq, mj_model.nv
@@ -42,6 +42,17 @@ def add_rl_obs_from_x(npz_path: str, xml_path: str) -> None:
     joint_pos_flat = qpos_flat[:, 7:7 + A].copy()       # (N*T, A)
     joint_vel_flat = qvel_flat[:, 6:6 + A].copy()       # (N*T, A)
 
+    #  object state from x
+
+    obj_qpos_flat = qpos_flat[:, 7 + A : 7 + A + 7].copy()   # (N*T, 7)
+    obj_qvel_flat = qvel_flat[:, 6 + A : 6 + A + 6].copy()   # (N*T, 6)
+
+    obj_pos_flat  = obj_qpos_flat[:, 0:3]   # xyz
+    obj_quat_flat = obj_qpos_flat[:, 3:7]   # wxyz
+
+    obj_lin_vel_flat = obj_qvel_flat[:, 0:3]  # vx,vy,vz
+    obj_ang_vel_flat = obj_qvel_flat[:, 3:6]  # wx,wy,wz
+
     #  sensor indices for torso_position / torso_orientatio
     sid_pos = mujoco.mj_name2id(mj_model, mujoco.mjtObj.mjOBJ_SENSOR, "torso_position")
     sid_ori = mujoco.mj_name2id(mj_model, mujoco.mjtObj.mjOBJ_SENSOR, "torso_orientation")
@@ -71,6 +82,10 @@ def add_rl_obs_from_x(npz_path: str, xml_path: str) -> None:
     base_ang_vel = base_ang_vel_flat.reshape(N, T, 3)
     joint_pos    = joint_pos_flat.reshape(N, T, A)
     joint_vel    = joint_vel_flat.reshape(N, T, A)
+    object_pos_w      = obj_pos_flat.reshape(N, T, 3)
+    object_quat_w     = obj_quat_flat.reshape(N, T, 4)
+    object_lin_vel_w  = obj_lin_vel_flat.reshape(N, T, 3)
+    object_ang_vel_w  = obj_ang_vel_flat.reshape(N, T, 3)
 
     # Saving
     out = dict(data)
@@ -79,6 +94,10 @@ def add_rl_obs_from_x(npz_path: str, xml_path: str) -> None:
     out["base_linvel_angvel"] = np.concatenate([base_lin_vel, base_ang_vel], axis=-1)
     out["actuator_pos"]    = joint_pos
     out["actuator_vel"]    = joint_vel
+    out["object_pos_w"]     = object_pos_w
+    out["object_quat_w"]    = object_quat_w
+    out["object_lin_vel_w"] = object_lin_vel_w
+    out["object_ang_vel_w"] = object_ang_vel_w
 
     np.savez(npz_path, **out)
     print(f"Updated npz with RL obs: {npz_path}")
@@ -87,6 +106,8 @@ def add_rl_obs_from_x(npz_path: str, xml_path: str) -> None:
     print(f"  base_linvel_angvel: {(N,T,6)}")
     print(f"  actuator_pos:    {joint_pos.shape}")
     print(f"  actuator_vel:    {joint_vel.shape}")
+    print(f"  object_pos_w: {object_pos_w.shape}")
+    print(f"  object_quat_w: {object_quat_w.shape}")
 
 
 def main():

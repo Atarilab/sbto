@@ -30,73 +30,100 @@ def quat_to_6d(q_np: np.ndarray) -> np.ndarray:
 
 class SbtoNpzDataset(Dataset):
     """
-    Builds all 8 MJLAB policy inputs from a rollout npz with shape (N_traj, T, ·).
+    Build MJLAB policy inputs from your pretraining NPZ:
+    joint_pos, joint_vel, error_anchor_b, base_ang_vel, joint_pos_rel,
+    actions, object_pos_b, object_position_error, object_orientation_error.
     """
     def __init__(self, npz_path: str):
         super().__init__()
         data = np.load(npz_path)
 
-        # Raw arrays with 3 dims: (N_traj, T, ·)
-        raw_act_pos = data["actuator_pos"].astype(np.float32)           # (N, T, A)
-        raw_act_vel = data["actuator_vel"].astype(np.float32)           # (N, T, A)
-        raw_base_linang = data["base_linvel_angvel"].astype(np.float32) # (N, T, 6)
-        raw_u = data["u_policy"].astype(np.float32)                        # (N, T, U)
+        # ---- load from your current npz ----
+        joint_pos  = data["joint_pos"].astype(np.float32)              # (N, T, 29)
+        joint_vel  = data["joint_vel"].astype(np.float32)              # (N, T, 29)
+        err_anchor_b = data["error_anchor_b"].astype(np.float32)       # (N, T, 6)
+        base_ang_vel = data["base_ang_vel"].astype(np.float32)         # (N, T, 3)
+        joint_pos_rel = data["joint_pos_rel"].astype(np.float32)       # (N, T, 29)
+        actions    = data["actions"].astype(np.float32)                # (N, T, 29)
+        obj_pos_b  = data["object_pos_b"].astype(np.float32)           # (N, T, 3)
+        obj_pos_err = data["object_position_error"].astype(np.float32) # (N, T, 3)
+        obj_ori_err = data["object_orientation_error"].astype(np.float32) # (N, T, 6)
 
-        N, T, A = raw_act_pos.shape
+        # !!! you MUST have some target in this npz, e.g. "u_policy"
+        # If it's not there, you need to add it when you create the npz.
+        raw_u = data["u_policy"].astype(np.float32)   # (N, T, U)
+        N, T, A = joint_pos.shape
         U = raw_u.shape[2]
         self.U = U
+
         if T < 2:
-            raise ValueError("Need at least 2 timesteps to build t -> t+1 pairs")
+            raise ValueError("Need at least 2 timesteps to build t->t+1 pairs")
 
         self.N_traj = N
         self.T_traj = T
         self.A = A
 
-        #  base linear and angular velocities in 3D 
-        raw_base_lin = raw_base_linang[..., :3]  # (N, T, 3)
-        raw_base_ang = raw_base_linang[..., 3:]  # (N, T, 3)
-
-        
-        # last_action[t] = act_pos[t-1]
-        raw_last_action = np.zeros_like(raw_act_pos)   # (N, T, A)
-        raw_last_action[:, 1:, :] = raw_act_pos[:, :-1, :]
-
-        raw_anchor_pos_b = data["anchor_pos_b"].astype(np.float32)      # (N, T, 3)
-
-        raw_anchor_quat_b = data["anchor_ori_b"].astype(np.float32)     # (N, T, 4)
-        raw_anchor_ori_b = quat_to_6d(raw_anchor_quat_b)                # (N, T, 6)
-
-        # Effective timesteps 
+        # effective time steps (use t = 0..T-2)
         T_eff = T - 1
 
-        # Inputs at time t
-        obs_act_pos      = raw_act_pos[:, :-1, :]        # (N, T-1, A)
-        obs_act_vel      = raw_act_vel[:, :-1, :]        # (N, T-1, A)
-        obs_base_lin     = raw_base_lin[:, :-1, :]       # (N, T-1, 3)
-        obs_base_ang     = raw_base_ang[:, :-1, :]       # (N, T-1, 3)
-        obs_last_action  = raw_last_action[:, :-1, :]    # (N, T-1, A)
-        obs_anchor_pos_b = raw_anchor_pos_b[:, :-1, :]   # (N, T-1, 3)
-        obs_anchor_ori_b = raw_anchor_ori_b[:, :-1, :]   # (N, T-1, 6)
+  
+        cmd_t = np.concatenate(
+            [joint_pos[:, :-1, :], joint_vel[:, :-1, :]],
+            axis=-1
+        )  # (N, T-1, 58)
 
+        # 1) motion_anchor_ori_b
+        motion_anchor_ori_b_t = err_anchor_b[:, :-1, :]       # (N, T-1, 6)
 
+        # 2) base_ang_vel
+        base_ang_vel_t = base_ang_vel[:, :-1, :]              # (N, T-1, 3)
 
-        #flatten to 2D
-        self.act_pos   = obs_act_pos.reshape(N * T_eff, A)        # (N*(T-1), A)
-        self.act_vel   = obs_act_vel.reshape(N * T_eff, A)        # (N*(T-1), A)
-        self.base_lin  = obs_base_lin.reshape(N * T_eff, 3)       # (N*(T-1), 3)
-        self.base_ang  = obs_base_ang.reshape(N * T_eff, 3)       # (N*(T-1), 3)
-        self.last_action   = obs_last_action.reshape(N * T_eff, A)
-        self.anchor_pos_b  = obs_anchor_pos_b.reshape(N * T_eff, 3)
-        self.anchor_ori_b  = obs_anchor_ori_b.reshape(N * T_eff, 6)
-        self.object_global_pos = self.anchor_pos_b.copy()  # (N*(T-1), 3)
-        self.object_ori_error = np.zeros((N * T_eff, 6), dtype=np.float32)
-        self.commands = np.concatenate([self.act_pos, self.act_vel], axis=-1)  # (N*(T-1), 2A)
-        
-        # Targets at time t: control u_t
-        target_u = raw_u[:, :-1, :]                      # (N, T-1, U)
-        self.targets = target_u.reshape(N * T_eff, U)    # (N*(T-1), U)
+        # 3) joint_pos term -> relative joint pos
+        joint_pos_term_t = joint_pos_rel[:, :-1, :]           # (N, T-1, 29)
 
-      
+        # 4) joint_vel term -> actual joint_vel
+        joint_vel_term_t = joint_vel[:, :-1, :]               # (N, T-1, 29)
+
+        # 5) actions
+        actions_t = actions[:, :-1, :]                        # (N, T-1, 29)
+
+        # 6) object_global_pos
+        obj_global_pos_t = obj_pos_b[:, :-1, :]               # (N, T-1, 3)
+
+        # 7) object_pos_error
+        obj_pos_err_t = obj_pos_err[:, :-1, :]                # (N, T-1, 3)
+
+        # 8) object_ori_error
+        obj_ori_err_t = obj_ori_err[:, :-1, :]                # (N, T-1, 6)
+
+        # ---- flatten to samples ----
+        self.command             = cmd_t.reshape(N * T_eff, 58)
+        self.motion_anchor_ori_b = motion_anchor_ori_b_t.reshape(N * T_eff, 6)
+        self.base_ang_vel        = base_ang_vel_t.reshape(N * T_eff, 3)
+        self.joint_pos_term      = joint_pos_term_t.reshape(N * T_eff, A)
+        self.joint_vel_term      = joint_vel_term_t.reshape(N * T_eff, A)
+        self.actions_term        = actions_t.reshape(N * T_eff, A)
+        self.object_global_pos   = obj_global_pos_t.reshape(N * T_eff, 3)
+        self.object_pos_error    = obj_pos_err_t.reshape(N * T_eff, 3)
+        self.object_ori_error    = obj_ori_err_t.reshape(N * T_eff, 6)
+
+        # targets at time t
+        target_u = raw_u[:, :-1, :]                            # (N, T-1, U)
+        self.targets = target_u.reshape(N * T_eff, U)          # (N*(T-1), U)
+
+        # obs dimension (should be 166)
+        self.obs_dim = (
+            self.command.shape[1]
+            + self.motion_anchor_ori_b.shape[1]
+            + self.base_ang_vel.shape[1]
+            + self.joint_pos_term.shape[1]
+            + self.joint_vel_term.shape[1]
+            + self.actions_term.shape[1]
+            + self.object_global_pos.shape[1]
+            + self.object_pos_error.shape[1]
+            + self.object_ori_error.shape[1]
+        )
+
         self.num_samples = N * T_eff
 
     def __len__(self):
@@ -104,39 +131,49 @@ class SbtoNpzDataset(Dataset):
 
     def __getitem__(self, idx):
         obs = {
-            "command":        torch.from_numpy(self.commands[idx]),      # (2A,)
-            "anchor_pos_b":   torch.from_numpy(self.anchor_pos_b[idx]),  # (3,)
-            "anchor_ori_b":   torch.from_numpy(self.anchor_ori_b[idx]),  # (6,)
-            "base_lin_vel":   torch.from_numpy(self.base_lin[idx]),      # (3,)
-            "base_ang_vel":   torch.from_numpy(self.base_ang[idx]),      # (3,)
-            "joint_pos":      torch.from_numpy(self.act_pos[idx]),       # (A,)  at time t
-            "joint_vel":      torch.from_numpy(self.act_vel[idx]),       # (A,)  at time t
-            "last_action":    torch.from_numpy(self.last_action[idx]),   # (A,)
-            "object_ori_error":  torch.from_numpy(self.object_ori_error[idx]),
-
+            "command":             torch.from_numpy(self.command[idx]),             # (58,)
+            "motion_anchor_ori_b": torch.from_numpy(self.motion_anchor_ori_b[idx]),# (6,)
+            "base_ang_vel":        torch.from_numpy(self.base_ang_vel[idx]),       # (3,)
+            "joint_pos":           torch.from_numpy(self.joint_pos_term[idx]),     # (29,)
+            "joint_vel":           torch.from_numpy(self.joint_vel_term[idx]),     # (29,)
+            "actions":             torch.from_numpy(self.actions_term[idx]),       # (29,)
+            "object_global_pos":   torch.from_numpy(self.object_global_pos[idx]),  # (3,)
+            "object_pos_error":    torch.from_numpy(self.object_pos_error[idx]),   # (3,)
+            "object_ori_error":    torch.from_numpy(self.object_ori_error[idx]),   # (6,)
         }
-        target = torch.from_numpy(self.targets[idx])                      # (A,) = joint_pos at t+1
+        target = torch.from_numpy(self.targets[idx])                               # (U,)
         return obs, target
 
 
 
 def collate_to_actor_obs(batch):
     """
-    Concatenate in MJLAB order:
-    command, anchor_pos_b, anchor_ori_b, base_lin_vel, base_ang_vel, joint_pos, joint_vel, last_action
+    Concatenate in EXACT MJLAB order:
+    command,
+    motion_anchor_ori_b,
+    base_ang_vel,
+    joint_pos,
+    joint_vel,
+    actions,
+    object_global_pos,
+    object_pos_error,
+    object_ori_error
     """
-    cmd   = torch.stack([b[0]["command"]      for b in batch], dim=0)
-    posb  = torch.stack([b[0]["anchor_pos_b"] for b in batch], dim=0)
-    orib  = torch.stack([b[0]["anchor_ori_b"] for b in batch], dim=0)
-    blin  = torch.stack([b[0]["base_lin_vel"] for b in batch], dim=0)
-    bang  = torch.stack([b[0]["base_ang_vel"] for b in batch], dim=0)
-    jpos  = torch.stack([b[0]["joint_pos"]    for b in batch], dim=0)
-    jvel  = torch.stack([b[0]["joint_vel"]    for b in batch], dim=0)
-    last  = torch.stack([b[0]["last_action"]  for b in batch], dim=0)
-    err_ori= torch.stack([b[0]["object_ori_error"] for b in batch], dim=0)
+    cmd   = torch.stack([b[0]["command"]             for b in batch], dim=0)
+    ori_b = torch.stack([b[0]["motion_anchor_ori_b"] for b in batch], dim=0)
+    bang  = torch.stack([b[0]["base_ang_vel"]        for b in batch], dim=0)
+    jpos  = torch.stack([b[0]["joint_pos"]           for b in batch], dim=0)
+    jvel  = torch.stack([b[0]["joint_vel"]           for b in batch], dim=0)
+    acts  = torch.stack([b[0]["actions"]             for b in batch], dim=0)
+    obj_g = torch.stack([b[0]["object_global_pos"]   for b in batch], dim=0)
+    obj_pe = torch.stack([b[0]["object_pos_error"]   for b in batch], dim=0)
+    obj_oe = torch.stack([b[0]["object_ori_error"]   for b in batch], dim=0)
 
+    actor_obs = torch.cat(
+        [cmd, ori_b, bang, jpos, jvel, acts, obj_g, obj_pe, obj_oe],
+        dim=-1,
+    )  # (B, 166)
 
-    actor_obs = torch.cat([cmd, posb, orib, blin, bang, jpos, jvel, last, err_ori], dim=-1)
     targets   = torch.stack([b[1] for b in batch], dim=0)
     return actor_obs, targets
 
@@ -199,7 +236,7 @@ def eval_epoch(model, loader, device):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--npz", type=str, required=True, help="Path to time_x_u_traj_rl_format.npz")
+    ap.add_argument("--npz", type=str, required=True)
     ap.add_argument("--epochs", type=int, default=20)
     ap.add_argument("--batch-size", type=int, default=512)
     ap.add_argument("--lr", type=float, default=1e-3)
@@ -211,12 +248,11 @@ def main():
     torch.manual_seed(args.seed)  #to fix both data splitting and weight initialization
     np.random.seed(args.seed)
 
+
     ds = SbtoNpzDataset(args.npz)
 
-    A = ds.act_pos.shape[1]          # number of joints (for obs_dim)
-    num_actions = ds.targets.shape[1]  # dimension of u
-
-    obs_dim = (2 * A) + 3 + 6 + 3 + 3 + A + A + A + 6  
+    obs_dim = ds.obs_dim           
+    num_actions = ds.targets.shape[1]
     
     # Split
     val_len = int(len(ds) * args.val_split)

@@ -1,6 +1,6 @@
 import numpy as np
 
-npz_path = "sbto/data/rollout_time_x_u_obs_traj.npz"
+npz_path = "sbto/data/pretraining_actor_input.npz"
 
 data = np.load(npz_path)
 
