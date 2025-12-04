@@ -6,7 +6,6 @@ import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader, random_split
 from rsl_rl.networks import MLP, EmpiricalNormalization
-from mjlab.third_party.isaaclab.isaaclab.utils.math import matrix_from_quat
 
 # Dataset
 
@@ -20,7 +19,7 @@ class SbtoNpzDataset(Dataset):
         super().__init__()
         data = np.load(npz_path)
 
-        # ---- load from your current npz ----
+        # load from npz
         joint_pos  = data["joint_pos"].astype(np.float32)              # (N, T, 29)
         joint_vel  = data["joint_vel"].astype(np.float32)              # (N, T, 29)
         err_anchor_b = data["error_anchor_b"].astype(np.float32)       # (N, T, 6)
@@ -30,16 +29,13 @@ class SbtoNpzDataset(Dataset):
         obj_pos_b  = data["object_pos_b"].astype(np.float32)           # (N, T, 3)
         obj_pos_err = data["object_position_error"].astype(np.float32) # (N, T, 3)
         obj_ori_err = data["object_orientation_error"].astype(np.float32) # (N, T, 6)
-
-        # !!! you MUST have some target in this npz, e.g. "u_policy"
-        # If it's not there, you need to add it when you create the npz.
         raw_u = data["u_policy"].astype(np.float32)   # (N, T, U)
+        
         N, T, A = joint_pos.shape
         U = raw_u.shape[2]
         self.U = U
 
-        if T < 2:
-            raise ValueError("Need at least 2 timesteps to build t->t+1 pairs")
+     
 
         self.N_traj = N
         self.T_traj = T
@@ -93,7 +89,7 @@ class SbtoNpzDataset(Dataset):
         target_u = raw_u[:, :-1, :]                            # (N, T-1, U)
         self.targets = target_u.reshape(N * T_eff, U)          # (N*(T-1), U)
 
-        # obs dimension (should be 166)
+        # obs dimension 
         self.obs_dim = (
             self.command.shape[1]
             + self.motion_anchor_ori_b.shape[1]
@@ -129,18 +125,7 @@ class SbtoNpzDataset(Dataset):
 
 
 def collate_to_actor_obs(batch):
-    """
-    Concatenate in EXACT MJLAB order:
-    command,
-    motion_anchor_ori_b,
-    base_ang_vel,
-    joint_pos,
-    joint_vel,
-    actions,
-    object_global_pos,
-    object_pos_error,
-    object_ori_error
-    """
+    
     cmd   = torch.stack([b[0]["command"]             for b in batch], dim=0)
     ori_b = torch.stack([b[0]["motion_anchor_ori_b"] for b in batch], dim=0)
     bang  = torch.stack([b[0]["base_ang_vel"]        for b in batch], dim=0)
@@ -168,7 +153,7 @@ class ActorMLP(nn.Module):
     """
     def __init__(self, obs_dim: int, num_actions: int, hidden=(512, 256, 128), activation="elu"):
         super().__init__()
-        self.norm = EmpiricalNormalization(obs_dim) #normalize inputs and keep updating during training
+        self.norm = EmpiricalNormalization(obs_dim) 
         self.mlp = MLP(obs_dim, num_actions, hidden, activation)
 
     def forward(self, x):
@@ -222,7 +207,6 @@ def main():
     ap.add_argument("--epochs", type=int, default=20)
     ap.add_argument("--batch-size", type=int, default=512)
     ap.add_argument("--lr", type=float, default=1e-3)
-    ap.add_argument("--val-split", type=float, default=0.1)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--save-dir", type=str, default="./pretrained_actor")
     args = ap.parse_args()

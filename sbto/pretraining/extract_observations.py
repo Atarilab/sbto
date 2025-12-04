@@ -1,3 +1,9 @@
+
+"""
+reconstructs all RL-style observation pieces that MJLab expects
+from x state trajectories,by running the MuJoCo model forward once 
+per state and writing the results back into the same NPZ file
+"""
 import os
 import numpy as np
 import mujoco
@@ -28,6 +34,7 @@ def add_rl_obs_from_x(npz_path: str, xml_path: str) -> None:
         mujoco.mj_name2id(mj_model, mujoco.mjtObj.mjOBJ_BODY, name)
         for name in body_names
     ]
+    
     # sanity check
     if any(bid < 0 for bid in body_ids):
         raise ValueError(f"Some body names not found in model: {body_ids}")
@@ -41,7 +48,7 @@ def add_rl_obs_from_x(npz_path: str, xml_path: str) -> None:
     if NX != nq + nv:
         raise ValueError(f"x last dim = {NX}, but model has nq+nv = {nq+nv}")
 
-    # Flatten over (N, T)
+    # Flatten over (N, T) to loop easily
     x_flat = x.reshape(-1, NX)               # (N*T, nq+nv)
     qpos_flat = x_flat[:, :nq]               # (N*T, nq)
     qvel_flat = x_flat[:, nq:]               # (N*T, nv)
@@ -85,11 +92,6 @@ def add_rl_obs_from_x(npz_path: str, xml_path: str) -> None:
     adr_pos, dim_pos = mj_model.sensor_adr[sid_pos], mj_model.sensor_dim[sid_pos]
     adr_ori, dim_ori = mj_model.sensor_adr[sid_ori], mj_model.sensor_dim[sid_ori]
 
-    if dim_pos != 3:
-        raise ValueError(f"torso_position dim = {dim_pos}, expected 3")
-    if dim_ori != 4:
-        raise ValueError(f"torso_orientation dim = {dim_ori}, expected 4")
-
     
     for i in range(total):
         mj_data.qpos[:] = qpos_flat[i]
@@ -97,8 +99,8 @@ def add_rl_obs_from_x(npz_path: str, xml_path: str) -> None:
 
         mujoco.mj_forward(mj_model, mj_data)
         for j, body_id in enumerate(body_ids):
-            robot_body_pos_w_flat[i, j, :]  = mj_data.xpos[body_id]
-            robot_body_quat_w_flat[i, j, :] = mj_data.xquat[body_id]
+            robot_body_pos_w_flat[i, j, :]  = mj_data.xpos[body_id] # world (x,y,z) of that link
+            robot_body_quat_w_flat[i, j, :] = mj_data.xquat[body_id] # world orientation of that link
 
         anchor_pos_b_flat[i] = mj_data.sensordata[adr_pos:adr_pos + dim_pos]
         anchor_ori_b_flat[i] = mj_data.sensordata[adr_ori:adr_ori + dim_ori]

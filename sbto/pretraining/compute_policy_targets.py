@@ -1,3 +1,9 @@
+"""
+Turn the raw torque sequence u into a residual policy target
+u_policy around MJLabs KNEES_BENT nominal pose
+
+"""
+
 import argparse
 import re
 import mujoco
@@ -9,15 +15,15 @@ from mjlab.asset_zoo.robots.unitree_g1.g1_constants import KNEES_BENT_KEYFRAME #
 def build_u_nominal_from_keyframe(mj_model: mujoco.MjModel) -> np.ndarray:
     """
     Build a nominal PD target vector (one value per actuator) from
-    KNEES_BENT_KEYFRAME.
+    KNEES_BENT_KEYFRAME
     """
-    # Collect all joint names in the model
+    # joint names in the model
     joint_names = []
     for j in range(mj_model.njnt):
         name = mujoco.mj_id2name(mj_model, mujoco.mjtObj.mjOBJ_JOINT, j)
         joint_names.append(name)
 
-    # Initialize all joints with 0
+    # Joint initialization
     nominal_by_name: dict[str, float] = {}
     for name in joint_names:
         if name is not None:
@@ -92,13 +98,8 @@ def main():
     u_nominal_broadcast = u_nominal.reshape(1, 1, U)
     u_policy = u - u_nominal_broadcast
 
-    print("\nSanity check on u_policy:")
-    print("  u       mean/std:", float(u.mean()), float(u.std()))
-    print("  u_nom   min/max :", float(u_nominal.min()), float(u_nominal.max()))
-    print("  u_policy mean/std:", float(u_policy.mean()), float(u_policy.std()))
-
-    # Save back into NPZ with u_policy'
-    out_dict = dict(data)  # copy all original arrays
+    # Save 
+    out_dict = dict(data)  
     out_dict["u_policy"] = u_policy.astype(np.float32)
 
     np.savez(args.npz, **out_dict)
