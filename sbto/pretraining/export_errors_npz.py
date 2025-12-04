@@ -78,6 +78,8 @@ def build_pretraining_npz(in_path: str, out_path: str) -> None:
     base_ang_vel = data["base_ang_vel"].astype(np.float32)    # (N, T, 3)
     object_pos_w = data["object_pos_w"].astype(np.float32)    # (N, T, 3)
     object_quat_w = data["object_quat_w"].astype(np.float32)  # (N, T, 4)
+    object_lin_vel_w = data["object_lin_vel_w"].astype(np.float32)  # (N, T, 3)
+    object_ang_vel_w = data["object_ang_vel_w"].astype(np.float32)  # (N, T, 3)
     c = data["c"].astype(np.float32)                          # (N,)
     robot_body_pos_w = data["robot_body_pos_w"].astype(np.float32)    # (N, T, B, 3)
     robot_body_quat_w = data["robot_body_quat_w"].astype(np.float32)  # (N, T, B, 4)
@@ -145,16 +147,38 @@ def build_pretraining_npz(in_path: str, out_path: str) -> None:
         body_pos_w_t, # body in world
         body_quat_w_t,
     )
-
     # Convert quaternion -> 6D orientation: first 2 columns of rotation matrix
     R = torch_matrix_from_quat(q12)         # (total, B, 3, 3)
     first_two_cols = R[..., :2]            # (total, B, 3, 2)
-
- 
     body_pos = t12.reshape(N, T, B * 3).cpu().numpy()        
     body_ori = first_two_cols.reshape(N, T, B * 6).cpu().numpy()  
    
+    #  Dummy history terms for critic (1*current + 9*zeros) so it matches mjlab2
+    K = 10  # number of slots critic uses
+    N, T, _ = object_pos_w.shape
 
+    # 6D global object orientation f
+    obj_quat_t = torch.from_numpy(object_quat_w)          # (N, T, 4)
+    R_global = torch_matrix_from_quat(obj_quat_t)         # (N, T, 3, 3)
+    obj_global_ori6 = R_global[..., :2].reshape(N, T, 6).cpu().numpy()
+
+    #  history buffers  allocations (local vars only)
+    object_global_pos_hist   = np.zeros((N, T, 3 * K), dtype=np.float32)
+    object_global_ori_hist   = np.zeros((N, T, 6 * K), dtype=np.float32)
+    object_lin_vel_w_hist    = np.zeros((N, T, 3 * K), dtype=np.float32)
+    object_ang_vel_w_hist    = np.zeros((N, T, 3 * K), dtype=np.float32)
+    object_pos_error_hist    = np.zeros((N, T, 3 * K), dtype=np.float32)
+    object_ori_error_hist    = np.zeros((N, T, 6 * K), dtype=np.float32)
+
+    # Slot 0 = real values, slots 1..9 = 0 
+    object_global_pos_hist[:, :, :3] = object_pos_w
+    object_global_ori_hist[:, :, :6] = obj_global_ori6
+    object_lin_vel_w_hist[:, :, :3]  = object_lin_vel_w
+    object_ang_vel_w_hist[:, :, :3]  = object_ang_vel_w
+    object_pos_error_hist[:, :, :3]  = object_position_error
+    object_ori_error_hist[:, :, :6]  = object_orientation_error
+    
+    
     feat_list = [
     joint_pos,                  # 29
     joint_vel,                  # 29
@@ -171,8 +195,8 @@ def build_pretraining_npz(in_path: str, out_path: str) -> None:
     policy_obs = np.concatenate(feat_list, axis=-1)  
 
     out = dict(data)
-    out["error_anchor_pos"]       = error_anchor_pos
-    out["error_anchor_b"]         = error_anchor_b
+    out["motion_anchor_pos_b"]       = error_anchor_pos
+    out["motion_anchor_ori_b"]         = error_anchor_b
     out["joint_pos_rel"]          = joint_pos_rel
     out["actions"]                = actions
     out["object_pos_b"]           = object_pos_b
@@ -181,6 +205,12 @@ def build_pretraining_npz(in_path: str, out_path: str) -> None:
     out["policy_obs"]             = policy_obs
     out["body_pos"]               = body_pos
     out["body_ori"]               = body_ori
+    out["object_global_pos"] = object_global_pos_hist
+    out["object_global_ori"] = object_global_ori_hist
+    out["object_lin_vel_w"]  = object_lin_vel_w_hist
+    out["object_ang_vel_w"]  = object_ang_vel_w_hist
+    out["object_pos_error"]  = object_pos_error_hist
+    out["object_ori_error"]  = object_ori_error_hist
        
     Path(out_path).parent.mkdir(parents=True, exist_ok=True)
     np.savez(out_path, **out)
