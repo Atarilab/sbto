@@ -6,8 +6,31 @@ import mujoco
 def add_rl_obs_from_x(npz_path: str, xml_path: str) -> None:
     
     mj_model = mujoco.MjModel.from_xml_path(xml_path)
-    mj_data  = mujoco.MjData(mj_model)
-
+    mj_data  = mujoco.MjData(mj_model)  
+    body_names = (
+    "pelvis",
+    "left_hip_roll_link",
+    "left_knee_link",
+    "left_ankle_roll_link",
+    "right_hip_roll_link",
+    "right_knee_link",
+    "right_ankle_roll_link",
+    "torso_link",
+    "left_shoulder_roll_link",
+    "left_elbow_link",
+    "left_wrist_yaw_link",
+    "right_shoulder_roll_link",
+    "right_elbow_link",
+    "right_wrist_yaw_link",
+   )
+    num_bodies = len(body_names)
+    body_ids = [
+        mujoco.mj_name2id(mj_model, mujoco.mjtObj.mjOBJ_BODY, name)
+        for name in body_names
+    ]
+    # sanity check
+    if any(bid < 0 for bid in body_ids):
+        raise ValueError(f"Some body names not found in model: {body_ids}")
     
     data = np.load(npz_path)
     x = data["x"].astype(np.float32)          
@@ -29,6 +52,8 @@ def add_rl_obs_from_x(npz_path: str, xml_path: str) -> None:
         raise ValueError(f"Cannot infer A from nq={nq} (expected nq = 7 + A + 7).")
 
     total = N * T
+    robot_body_pos_w_flat  = np.zeros((total, num_bodies, 3), dtype=np.float32)
+    robot_body_quat_w_flat = np.zeros((total, num_bodies, 4), dtype=np.float32)
 
     # preallocation
     anchor_pos_b_flat = np.zeros((total, 3), dtype=np.float32)
@@ -71,6 +96,9 @@ def add_rl_obs_from_x(npz_path: str, xml_path: str) -> None:
         mj_data.qvel[:] = qvel_flat[i]
 
         mujoco.mj_forward(mj_model, mj_data)
+        for j, body_id in enumerate(body_ids):
+            robot_body_pos_w_flat[i, j, :]  = mj_data.xpos[body_id]
+            robot_body_quat_w_flat[i, j, :] = mj_data.xquat[body_id]
 
         anchor_pos_b_flat[i] = mj_data.sensordata[adr_pos:adr_pos + dim_pos]
         anchor_ori_b_flat[i] = mj_data.sensordata[adr_ori:adr_ori + dim_ori]
@@ -86,6 +114,10 @@ def add_rl_obs_from_x(npz_path: str, xml_path: str) -> None:
     object_quat_w     = obj_quat_flat.reshape(N, T, 4)
     object_lin_vel_w  = obj_lin_vel_flat.reshape(N, T, 3)
     object_ang_vel_w  = obj_ang_vel_flat.reshape(N, T, 3)
+    robot_body_pos_w  = robot_body_pos_w_flat.reshape(N, T, num_bodies, 3)
+    robot_body_quat_w = robot_body_quat_w_flat.reshape(N, T, num_bodies, 4)
+
+
 
     # Saving
     out = dict(data)
@@ -98,6 +130,8 @@ def add_rl_obs_from_x(npz_path: str, xml_path: str) -> None:
     out["object_quat_w"]    = object_quat_w
     out["object_lin_vel_w"] = object_lin_vel_w
     out["object_ang_vel_w"] = object_ang_vel_w
+    out["robot_body_pos_w"]  = robot_body_pos_w
+    out["robot_body_quat_w"] = robot_body_quat_w
 
     np.savez(npz_path, **out)
     print(f"Updated npz with RL obs: {npz_path}")
@@ -113,6 +147,7 @@ def add_rl_obs_from_x(npz_path: str, xml_path: str) -> None:
 def main():
     npz_path = "sbto/data/rollout_time_x_u_obs_traj.npz"
     xml_path = "sbto/models/unitree_g1/scene_29dof.xml"
+    
     add_rl_obs_from_x(npz_path, xml_path)
 
 

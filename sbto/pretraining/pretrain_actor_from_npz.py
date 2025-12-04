@@ -8,24 +8,6 @@ from torch.utils.data import Dataset, DataLoader, random_split
 from rsl_rl.networks import MLP, EmpiricalNormalization
 from mjlab.third_party.isaaclab.isaaclab.utils.math import matrix_from_quat
 
-def quat_to_6d(q_np: np.ndarray) -> np.ndarray:
-    """
-    q_np: (..., 4) quaternion (w, x, y, z)
-    returns: (..., 6) = first two columns of 3x3 rotation matrix, flattened
-    """
-    # to torch, float32
-    q = torch.from_numpy(q_np.astype(np.float32))
-
-    # normalization
-    q = q / q.norm(dim=-1, keepdim=True).clamp_min(1e-8)
-
-	# Convert quat to 3×3 rotation matrix
-    R = matrix_from_quat(q)
-
-    # 6-D representation
-    R_2 = R[..., :, :2].reshape(*q.shape[:-1], 6)
-
-    return R_2.numpy()
 # Dataset
 
 class SbtoNpzDataset(Dataset):
@@ -96,7 +78,7 @@ class SbtoNpzDataset(Dataset):
         # 8) object_ori_error
         obj_ori_err_t = obj_ori_err[:, :-1, :]                # (N, T-1, 6)
 
-        # ---- flatten to samples ----
+        # flatten
         self.command             = cmd_t.reshape(N * T_eff, 58)
         self.motion_anchor_ori_b = motion_anchor_ori_b_t.reshape(N * T_eff, 6)
         self.base_ang_vel        = base_ang_vel_t.reshape(N * T_eff, 3)
@@ -255,8 +237,7 @@ def main():
     num_actions = ds.targets.shape[1]
     
     # Split
-    val_len = int(len(ds) * args.val_split)
-    train_len = len(ds) - val_len
+    
     split_idx = int(0.8 * len(ds))
     train_ds = torch.utils.data.Subset(ds, range(0, split_idx))
     val_ds = torch.utils.data.Subset(ds, range(split_idx, len(ds)))
@@ -264,7 +245,7 @@ def main():
     # Loaders
     train_loader = DataLoader(train_ds, batch_size=args.batch_size, shuffle=True,
                               num_workers=0, collate_fn=collate_to_actor_obs, pin_memory=True)
-    val_loader = DataLoader(val_ds, batch_size=args.batch_size, shuffle=True,
+    val_loader = DataLoader(val_ds, batch_size=args.batch_size, shuffle=False,
                             num_workers=0, collate_fn=collate_to_actor_obs, pin_memory=True)
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -325,7 +306,6 @@ def main():
         os.path.join(args.save_dir, "training_log.npy"),
         {"train": train_losses, "val": val_losses},
     )
-    print(f"Saved training log to {args.save_dir}")
     print(f"Saved training log to {args.save_dir}")
     print(f"  -> saved: {final_path}")
 
