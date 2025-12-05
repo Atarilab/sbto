@@ -35,9 +35,7 @@ class SimRolloutBase(ABC):
         # spline interpolation
         self.interp_kind = interp_kind
         self.t_all = np.int32(np.ceil(np.linspace(0, 1, T, endpoint=True) * T))
-        self.t_all[-1] -= 1
         self.t_knots = np.int32(np.ceil(np.linspace(0, 1, Nknots, endpoint=True) * T))
-        self.t_knots[-1] -= 1
 
         self.x_0 = np.zeros((self.Nx, ))
         # pd target scaling to joint range
