@@ -1,9 +1,0 @@
-<mujoco>
-    <sensor>
-        <!-- hands position and quat -->
-        <framepos objtype="site" objname="right_palm" name="right_hand_pos" reftype="geom" refname="obj"/>
-        <framepos objtype="site" objname="left_palm" name="left_hand_pos" reftype="geom" refname="obj"/>
-        <framequat name="left_hand_orientation" objtype="site" objname="left_palm" reftype="geom" refname="obj"/>
-        <framequat name="right_hand_orientation" objtype="site" objname="right_palm" reftype="geom" refname="obj"/>
-    </sensor>
-</mujoco>

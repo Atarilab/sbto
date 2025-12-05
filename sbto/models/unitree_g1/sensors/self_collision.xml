@@ -1,0 +1,6 @@
+<mujoco>
+    <sensor>
+        <!-- self collision -->
+        <contact subtree1="pelvis" subtree2="pelvis" data="found" num="1" name="self_collision"/>
+    </sensor>
+</mujoco>

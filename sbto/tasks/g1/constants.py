@@ -45,6 +45,14 @@ class Sensors:
         "left_hand_orientation",
         "right_hand_orientation",
     ]
+    HAND_POS_OBJ_FRAME = [
+        "left_hand_pos_obj_frame",
+        "right_hand_pos_obj_frame",
+    ]
+    HAND_QUAT_OBJ_FRAME = [
+        "left_hand_orientation_obj_frame",
+        "right_hand_orientation_obj_frame",
+    ]
     FEET_POS = [
         "left_foot_pos",
         "right_foot_pos",

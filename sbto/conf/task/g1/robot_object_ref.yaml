@@ -14,12 +14,10 @@ cfg:
 
   # --- Torso pose/vel ---
   torso_pos_weight: 25.0
-  torso_quat_weight: 3.0
+  torso_quat_weight: 2.0
   torso_quat_weight_terminal: 2.0
   torso_linvel_weight: 0.5
-  torso_linvel_weight_terminal: 0.5
   torso_angvel_weight: 0.5
-  torso_angvel_weight_terminal: 0.5
 
   # --- Foot pose cost ---
   foot_position: 15.0
@@ -30,13 +28,15 @@ cfg:
   contact_force_feet_weight: 1.0e-6
 
   # --- Hand pose cost ---
-  hand_position: 10.0
+  # (both in world and obj ref frame)
+  hand_position: 6.
   hand_orientation: 0.
-  hand_pos_z_mult: 1.
 
   # --- Obj pose cost ---
   obj_pos_weight: 20.
+  obj_pos_weight_terminal: 40.
   obj_quat_weight: 2.
+  obj_quat_weight_terminal: 4.
   obj_v_weight: 1.
   obj_w_weight: 1.
 
@@ -64,7 +64,7 @@ mj_scene_ref:
     xml_sensors_path:
     - sbto/models/unitree_g1/sensors/feet_contact.xml
     - sbto/models/unitree_g1/sensors/feet_pos.xml
-    - sbto/models/unitree_g1/sensors/hands_pos_obj_frame.xml
+    - sbto/models/unitree_g1/sensors/hands_pos.xml
     - sbto/models/unitree_g1/sensors/obj_collision.xml
     - sbto/models/unitree_g1/sensors/obj.xml
     - sbto/models/unitree_g1/sensors/torso.xml
@@ -123,7 +123,7 @@ sim:
       xml_sensors_path:
       - sbto/models/unitree_g1/sensors/feet_contact.xml
       - sbto/models/unitree_g1/sensors/feet_pos.xml
-      - sbto/models/unitree_g1/sensors/hands_pos_obj_frame.xml
+      - sbto/models/unitree_g1/sensors/hands_pos.xml
       - sbto/models/unitree_g1/sensors/obj_collision.xml
       - sbto/models/unitree_g1/sensors/obj.xml
       - sbto/models/unitree_g1/sensors/torso.xml
