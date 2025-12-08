@@ -142,19 +142,19 @@ def build_pretraining_npz(in_path: str, out_path: str) -> None:
 
     # Subtract frames: world to anchor frame 
     t12, q12 = subtract_frame_transforms(
-        t01,          # anchor in world
+        t01,          
         q01,
         body_pos_w_t, # body in world
         body_quat_w_t,
     )
-    # Convert quaternion -> 6D orientation: first 2 columns of rotation matrix
+    # Convert quaternion: 6D orientation to first 2 columns of rotation matrix
     R = torch_matrix_from_quat(q12)         # (total, B, 3, 3)
     first_two_cols = R[..., :2]            # (total, B, 3, 2)
     body_pos = t12.reshape(N, T, B * 3).cpu().numpy()        
     body_ori = first_two_cols.reshape(N, T, B * 6).cpu().numpy()  
    
-    #  Dummy history terms for critic (1*current + 9*zeros) so it matches mjlab2
-    K = 10  # number of slots critic uses
+    #  Dummy history terms for critic (1*current + 9*zeros) 
+    K = 10  
     N, T, _ = object_pos_w.shape
 
     # 6D global object orientation f

@@ -4,7 +4,7 @@ import argparse
 import numpy as np
 import torch
 import torch.nn as nn
-from torch.utils.data import Dataset, DataLoader, random_split
+from torch.utils.data import Dataset, DataLoader
 from rsl_rl.networks import MLP, EmpiricalNormalization
 
 # Dataset
@@ -22,7 +22,7 @@ class SbtoNpzDataset(Dataset):
         # load from npz
         joint_pos  = data["joint_pos"].astype(np.float32)              # (N, T, 29)
         joint_vel  = data["joint_vel"].astype(np.float32)              # (N, T, 29)
-        err_anchor_b = data["error_anchor_b"].astype(np.float32)       # (N, T, 6)
+        motion_anchor_ori_b = data["motion_anchor_ori_b"].astype(np.float32)       # (N, T, 6)
         base_ang_vel = data["base_ang_vel"].astype(np.float32)         # (N, T, 3)
         joint_pos_rel = data["joint_pos_rel"].astype(np.float32)       # (N, T, 29)
         actions    = data["actions"].astype(np.float32)                # (N, T, 29)
@@ -51,7 +51,7 @@ class SbtoNpzDataset(Dataset):
         )  # (N, T-1, 58)
 
         # 1) motion_anchor_ori_b
-        motion_anchor_ori_b_t = err_anchor_b[:, :-1, :]       # (N, T-1, 6)
+        motion_anchor_ori_b_t = motion_anchor_ori_b[:, :-1, :]       # (N, T-1, 6)
 
         # 2) base_ang_vel
         base_ang_vel_t = base_ang_vel[:, :-1, :]              # (N, T-1, 3)
@@ -268,7 +268,7 @@ def main():
             }, save_path)
             print(f"  -> saved: {save_path}")
 
-    # also save final
+
     final_path = os.path.join(args.save_dir, "actor_from_sbto_last.pth")
     torch.save({
         "actor_state_dict": model.state_dict(),
@@ -279,19 +279,15 @@ def main():
         "val_mse": best_val,
     }, final_path)
     
-    #  network architecture summary 
-    arch_path = os.path.join(args.save_dir, "network_architecture.txt")
-    with open(arch_path, "w") as f:
-        f.write(str(model))
-    print(f"Saved model architecture to {arch_path}")
 
-    # Save training logs for visualization
+
+    save_path_best = os.path.join(args.save_dir, "actor_from_sbto_best.pth")
+    save_path_last = os.path.join(args.save_dir, "actor_from_sbto_last.pth")
+
     np.save(
-        os.path.join(args.save_dir, "training_log.npy"),
+        os.path.join(args.save_dir, "training_log_actor.npy"),
         {"train": train_losses, "val": val_losses},
-    )
-    print(f"Saved training log to {args.save_dir}")
-    print(f"  -> saved: {final_path}")
+)
 
 
 
