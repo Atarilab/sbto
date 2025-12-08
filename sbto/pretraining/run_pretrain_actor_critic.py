@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import torch
 
 
 def run_pretrain(script_name, npz_path, save_dir, epochs, batch_size, lr):
