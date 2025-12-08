@@ -48,30 +48,15 @@ class SbtoNpzDataset(Dataset):
         cmd_t = np.concatenate(
             [joint_pos[:, :-1, :], joint_vel[:, :-1, :]],
             axis=-1
-        )  # (N, T-1, 58)
+        ) 
 
-        # 1) motion_anchor_ori_b
         motion_anchor_ori_b_t = motion_anchor_ori_b[:, :-1, :]       # (N, T-1, 6)
-
-        # 2) base_ang_vel
         base_ang_vel_t = base_ang_vel[:, :-1, :]              # (N, T-1, 3)
-
-        # 3) joint_pos term -> relative joint pos
         joint_pos_term_t = joint_pos_rel[:, :-1, :]           # (N, T-1, 29)
-
-        # 4) joint_vel term -> actual joint_vel
         joint_vel_term_t = joint_vel[:, :-1, :]               # (N, T-1, 29)
-
-        # 5) actions
         actions_t = actions[:, :-1, :]                        # (N, T-1, 29)
-
-        # 6) object_global_pos
         obj_global_pos_t = obj_pos_b[:, :-1, :]               # (N, T-1, 3)
-
-        # 7) object_pos_error
         obj_pos_err_t = obj_pos_err[:, :-1, :]                # (N, T-1, 3)
-
-        # 8) object_ori_error
         obj_ori_err_t = obj_ori_err[:, :-1, :]                # (N, T-1, 6)
 
         # flatten
@@ -281,9 +266,7 @@ def main():
     
 
 
-    save_path_best = os.path.join(args.save_dir, "actor_from_sbto_best.pth")
-    save_path_last = os.path.join(args.save_dir, "actor_from_sbto_last.pth")
-
+   
     np.save(
         os.path.join(args.save_dir, "training_log_actor.npy"),
         {"train": train_losses, "val": val_losses},

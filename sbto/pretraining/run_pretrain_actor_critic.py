@@ -77,7 +77,7 @@ def main():
         lr=1e-3,
     )
 
-    # Plots (assuming each script writes a different log file name)
+    # Plots 
     plot_log(save_dir, "training_log_actor.npy", "Actor Pretraining Loss")
     plot_log(save_dir, "training_log_critic.npy", "Critic Pretraining Loss")
 

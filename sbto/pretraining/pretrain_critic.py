@@ -10,25 +10,8 @@ from rsl_rl.networks import MLP, EmpiricalNormalization
 
 class SbtoCriticDataset(Dataset):
     """
-    Build MJLAB critic inputs from pretraining NPZ.
-
-    Critic obs order (must match mjlab):
-      command (58),
-      motion_anchor_pos_b (3),
-      motion_anchor_ori_b (6),
-      body_pos (42),
-      body_ori (84),
-      base_lin_vel (3),
-      base_ang_vel (3),
-      joint_pos (29),
-      joint_vel (29),
-      actions (29),
-      object_global_pos (30),
-      object_global_ori (60),
-      object_lin_vel_w (30),
-      object_ang_vel_w (30),
-      object_pos_error (30),
-      object_ori_error (60)
+     MJLAB critic inputs from pretraining NPZ.
+   
     """
     def __init__(self, npz_path: str):
         super().__init__()
@@ -49,17 +32,14 @@ class SbtoCriticDataset(Dataset):
         object_ang_vel_w     = data["object_ang_vel_w"].astype(np.float32)     # (N, T, 30)
         object_pos_error     = data["object_pos_error"].astype(np.float32)     # (N, T, 30)
         object_ori_error     = data["object_ori_error"].astype(np.float32)     # (N, T, 60)
-        c                    = data["c"].astype(np.float32)                    # (N,)
-
+        
         N, T, A = joint_pos.shape
         self.N_traj = N
         self.T_traj = T
         self.A = A
 
-        # "command" approximation = [joint_pos, joint_vel], like in actor script (58 dims)
-        command = np.concatenate([joint_pos, joint_vel], axis=-1)  # (N, T, 58)
-
-        # Flatten over trajectories and timesteps (no history shift needed for critic)
+        command = np.concatenate([joint_pos, joint_vel], axis=-1)  
+        
         self.command             = command.reshape(N * T, 58)
         self.motion_anchor_pos_b = motion_anchor_pos_b.reshape(N * T, 3)
         self.motion_anchor_ori_b = motion_anchor_ori_b.reshape(N * T, 6)
@@ -77,11 +57,11 @@ class SbtoCriticDataset(Dataset):
         self.object_pos_error    = object_pos_error.reshape(N * T, 30)
         self.object_ori_error    = object_ori_error.reshape(N * T, 60)
 
-        # Critic target: V(s_{i,t}) ≈ -c_i  (same value for all timesteps in a trajectory)
-        values = (-c)[:, None].repeat(T, axis=1)     # (N, T)
-        self.targets = values.reshape(N * T, 1)      # (N*T, 1)
+        self.targets = self._compute_targets_from_errors(
+            object_pos_error, object_ori_error
+        )   
 
-        # Total critic obs dimension should be 526
+        # critic obs 
         self.obs_dim = (
             self.command.shape[1]             # 58
             + self.motion_anchor_pos_b.shape[1]  # 3
@@ -102,7 +82,41 @@ class SbtoCriticDataset(Dataset):
         )
 
         self.num_samples = N * T
+    def _compute_targets_from_errors(self, object_pos_error, object_ori_error):
+        """
+        Compute critic targets using the same reward logic as MJLab's
+        object_global_pos + object_global_ori terms:
+    
+        r     = w_pos * r_pos + w_ori * r_ori
 
+        """
+
+        N, T, _ = object_pos_error.shape
+
+        # same std and weights as env_cfg (from mjlab2):
+        std_pos = 0.25
+        std_ori = 0.3
+        w_pos = 1.0
+        w_ori = 0.8
+        gamma = 0.99 
+
+
+        pos_err_sq = np.sum(object_pos_error**2, axis=-1)  # (N, T)
+        ori_err_sq = np.sum(object_ori_error**2, axis=-1)  # (N, T)
+
+        r_pos = np.exp(-pos_err_sq / (std_pos**2))         # (N, T)
+        r_ori = np.exp(-ori_err_sq / (std_ori**2))         # (N, T)
+
+        r_step = w_pos * r_pos + w_ori * r_ori             # (N, T)
+
+        # discounted returns per step
+        returns = np.zeros_like(r_step, dtype=np.float32)  # (N, T)
+        returns[:, -1] = r_step[:, -1]
+        for t in range(T - 2, -1, -1):
+            returns[:, t] = r_step[:, t] + gamma * returns[:, t + 1]
+
+        # flatten to (N*T, 1) as training targets
+        return returns.reshape(N * T, 1).astype(np.float32)
     def __len__(self):
         return self.num_samples
 
@@ -125,12 +139,12 @@ class SbtoCriticDataset(Dataset):
             "object_pos_error":    torch.from_numpy(self.object_pos_error[idx]),
             "object_ori_error":    torch.from_numpy(self.object_ori_error[idx]),
         }
-        target = torch.from_numpy(self.targets[idx])    # (1,)
+        target = torch.from_numpy(self.targets[idx])
         return obs, target
 
 
 def collate_to_critic_obs(batch):
-    # Concatenate EXACTLY in mjlab critic order
+    # exactly in mjlab critic order
     cmd   = torch.stack([b[0]["command"]             for b in batch], dim=0)
     mpos  = torch.stack([b[0]["motion_anchor_pos_b"] for b in batch], dim=0)
     mori  = torch.stack([b[0]["motion_anchor_ori_b"] for b in batch], dim=0)
@@ -170,7 +184,7 @@ class CriticMLP(nn.Module):
         x = self.norm(x)
         return self.mlp(x)
 
-
+#training
 def train_epoch(model, loader, optim, device):
     model.train()
     total = 0.0
@@ -188,7 +202,7 @@ def train_epoch(model, loader, optim, device):
         n += critic_obs.size(0)
     return total / max(1, n)
 
-
+# evaluation
 @torch.no_grad()
 def eval_epoch(model, loader, device):
     model.eval()
@@ -221,7 +235,7 @@ def main():
     ds = SbtoCriticDataset(args.npz)
     obs_dim = ds.obs_dim
 
-    train_size = int(0.8 * len(ds))
+    train_size = int(0.8 * len(ds)) 
     val_size = len(ds) - train_size
     train_ds, val_ds = torch.utils.data.random_split(ds, [train_size, val_size])
 
@@ -254,11 +268,17 @@ def main():
 
     best_val = math.inf
     os.makedirs(args.save_dir, exist_ok=True)
-
+    train_hist = []
+    val_hist = []
+    
+    # training loop
     for epoch in range(1, args.epochs + 1):
         tr = train_epoch(model, train_loader, optim, device)
         va = eval_epoch(model, val_loader, device)
         print(f"[Epoch {epoch:03d}] train_mse={tr:.6f}  val_mse={va:.6f}")
+        train_hist.append(tr)
+        val_hist.append(va)
+
 
         if va < best_val:
             best_val = va
@@ -286,6 +306,10 @@ def main():
         },
         final_path,
     )
+    log_path = os.path.join(args.save_dir, "training_log_critic.npy")
+    np.save(log_path, {"train": np.array(train_hist), "val": np.array(val_hist)})
+    
+    print(f"  -> saved critic log: {log_path}")
     print(f"  -> saved final: {final_path}")
 
 
