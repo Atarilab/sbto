@@ -5,7 +5,9 @@ import torch
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--save-dir", type=str, required=True)
+
+    default_save_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "pretrained_sbto_results"))
+    p.add_argument("--save-dir", type=str, default=default_save_dir)
     p.add_argument("--actor", type=str, default="actor_from_sbto_best.pth")
     p.add_argument("--critic", type=str, default="critic_from_sbto_best.pth")
     p.add_argument("--out", type=str, default="model_sbto_pretrained.pt")
@@ -51,10 +53,6 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
-
 
 """
 
