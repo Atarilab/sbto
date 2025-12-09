@@ -1,3 +1,7 @@
+import argparse
+import os
+import torch
+
 """
 Merges SBTO-pretrained nets with a full MJLAB checkpoint.
 
@@ -14,11 +18,6 @@ Merges SBTO-pretrained nets with a full MJLAB checkpoint.
  the final output file uses generated SBTO actor/critic (no RL weights left),
 but still has a valid optimizer_state_dict etc, for MJLAB to load.
 """
-
-import argparse
-import os
-import torch
-
 
 def main():
     parser = argparse.ArgumentParser()

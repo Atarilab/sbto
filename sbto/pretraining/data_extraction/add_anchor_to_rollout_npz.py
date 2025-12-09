@@ -5,19 +5,10 @@ import mujoco
 
 def build_state_traj_from_npz(npz_path, mj_model):
     """
-    Reconstruct MuJoCo state [qpos | qvel] for ALL trajectories from the RL-format NPZ.
-
-    Input NPZ (new file) shapes:
-        time                 (N, T, 1)
-        actuator_pos         (N, T, 29)
-        actuator_vel         (N, T, 29)
-        base_xyz_quat        (N, T, 7)
-        base_linvel_angvel   (N, T, 6)
-        obj_0_xyz_quat       (N, T, 7)
-        obj_0_linvel_angvel  (N, T, 6)
+    Reconstruct MuJoCo state [qpos | qvel] for ALL trajectories from the RL-format NPZ
 
     Returns
-        state_traj_all: (N, T, nq + nv) = (N, T, 84)
+        state_traj_all: (N, T, nq + nv) = (N, T, 84) = actor input
     """
     data = np.load(npz_path)
 

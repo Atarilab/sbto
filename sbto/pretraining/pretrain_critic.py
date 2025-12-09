@@ -8,6 +8,7 @@ from torch.utils.data import Dataset, DataLoader
 from rsl_rl.networks import MLP, EmpiricalNormalization
 
 
+
 class SbtoCriticDataset(Dataset):
     """
      MJLAB critic inputs from pretraining NPZ.
@@ -117,6 +118,7 @@ class SbtoCriticDataset(Dataset):
 
         # flatten to (N*T, 1) as training targets
         return returns.reshape(N * T, 1).astype(np.float32)
+    
     def __len__(self):
         return self.num_samples
 
