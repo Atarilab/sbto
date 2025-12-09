@@ -45,6 +45,28 @@ def get_config_dict_from_rundir(run_dir: str):
     else:
         return {}
     
+def get_config_path_from_rundir(run_dir: str):
+    CONFIG_NAME = "config"
+    all_cfg_yaml = glob.glob(
+        f"{run_dir}/*/{CONFIG_NAME}.yaml",
+        include_hidden=True,
+        recursive=True
+        )
+    all_cfg_yaml += glob.glob(
+        f"{run_dir}/*/*/{CONFIG_NAME}.yaml",
+        include_hidden=True,
+        recursive=True
+        )
+    all_cfg_yaml += glob.glob(
+        f"{run_dir}/*{CONFIG_NAME}.yaml",
+        include_hidden=True,
+        recursive=True
+        )
+    if len(all_cfg_yaml) > 0:
+        return all_cfg_yaml[0]
+    else:
+        return ""
+    
 def get_xml_path_from_rundir(run_dir: str):
     all_xml_paths = glob.glob(
         f"{run_dir}/*/*.xml",

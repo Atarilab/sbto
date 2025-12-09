@@ -89,7 +89,7 @@ def aggregate_top_samples(
     top_samples, top_costs = get_top_samples(all_costs_arr, all_samples_arr, N_top_samples)
     # Rollout to get data
     try:
-        t, state_traj, u_traj, obs_traj = sim.rollout(top_samples)
+        t, state_traj, u_traj, obs_traj = sim.rollout(top_samples, with_x0=True)
     except:
         print(f"Rollout failed ({data_dir})")
         return {}
