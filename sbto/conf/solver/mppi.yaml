@@ -1,0 +1,14 @@
+_target_: sbto.solvers.mppi.MPPI
+cfg:
+  _target_: sbto.solvers.mppi.ConfigMPPI
+  N_samples: 1024
+  N_it: 100
+  lambda_: 10.
+  alpha_mean: 0.95
+  alpha_cov: 0.15
+  keep_frac: 0.
+  std_incr: 0.
+  sigma0: 0.25
+  quasi_random: False
+  seed: 0
+  sampler: normal
