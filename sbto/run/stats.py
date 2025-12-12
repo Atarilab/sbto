@@ -68,3 +68,38 @@ class OptimizationStats():
         file_path = os.path.join(dir_path, f"{PERF_FILENAME}.yaml")
         with open(file_path, "w") as f:
             yaml.safe_dump(data, f)
+
+    @classmethod
+    def load(cls, dir_path: str):
+        """
+        Load an OptimizationStats object from a YAML file.
+        """
+        file_path = os.path.join(dir_path, f"{PERF_FILENAME}.yaml")
+        with open(file_path, "r") as f:
+            data = yaml.safe_load(f)
+
+        obj = cls()
+
+        iterations = data.get("iterations", {})
+        # reset index counter
+        obj.i = 0
+        obj.iterations = {}
+
+        for it_idx_str, it_data in iterations.items():
+            # YAML keys come as strings
+            it_idx = int(it_idx_str)
+
+            n_knots = it_data["n_knots_to_opt"]
+            n_steps = it_data["n_sim_steps_rollout"]
+            duration = it_data["duration"]
+
+            # Create IterationStats but do NOT restart timing
+            it = IterationStats(n_knots, n_steps)
+            it.duration = duration  # overwrite actual measured duration
+
+            obj.iterations[it_idx] = it
+
+            # keep i consistent with max index + 1
+            obj.i = max(obj.i, it_idx + 1)
+
+        return obj

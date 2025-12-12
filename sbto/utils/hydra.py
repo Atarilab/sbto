@@ -11,6 +11,7 @@ from sbto.tasks.task_mj_ref import TaskMjRef
 from sbto.solvers.solver_base import SamplingBasedSolver, SolverState
 from sbto.run.optimize import optimize_single_shooting, optimize_mutiple_shooting, optimize_incremental_opt
 from sbto.run.save import save_results, get_final_state_from_rundir
+from sbto.run.stats import OptimizationStats
 
 def optimize_and_save_data(
     cfg,
@@ -19,6 +20,7 @@ def optimize_and_save_data(
     solver: SamplingBasedSolver,
     hydra_rundir: str = "",
     solver_state_0: Optional[SolverState] = None,
+    opt_stats: Optional[OptimizationStats] = None,
     ) -> str:
 
     # Copy initial state
@@ -45,11 +47,12 @@ def optimize_and_save_data(
     else:
         optimizer_fn = optimize_single_shooting
     
-    solver_state_final, all_samples, all_costs, opt_perf = optimizer_fn(
+    solver_state_final, all_samples, all_costs, opt_stats = optimizer_fn(
         sim,
         task,
         solver,
-        solver_state_0
+        solver_state_0,
+        opt_stats,
     )
 
     rundir = save_results(
@@ -67,9 +70,9 @@ def optimize_and_save_data(
         cfg.warm_start.multiple_shooting,
     )
 
-    opt_perf.save(rundir)
+    opt_stats.save(rundir)
 
-    return rundir
+    return rundir, opt_stats
 
 def instantiate_from_cfg(cfg):
     sim = instantiate(cfg.task.sim)
@@ -116,3 +119,11 @@ def set_cfg_warm_start(cfg):
     elif cfg_ws.warm_start.multiple_shooting:
         cfg_ws.description += sep + WARM_START_MULTIPLE_SHOOTING
     return cfg_ws
+
+def get_optimization_stats_warm_start(cfg) -> OptimizationStats | None:
+    rundir = cfg.warm_start.rundir
+    if rundir and os.path.exists(rundir):
+        opt_stats = OptimizationStats.load(rundir)
+    else:
+        opt_stats = None
+    return opt_stats

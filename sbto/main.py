@@ -16,6 +16,7 @@ def main(cfg):
 
     # Warm start
     if is_warm_start:
+        
         cfg_ws = set_cfg_warm_start(cfg)
 
         # Figures will be saved after warm_start
@@ -30,13 +31,16 @@ def main(cfg):
             solver.cfg.N_it = cfg_ws.warm_start.N_it
 
         solver_state_0 = get_warm_start_state_solver(cfg, sim, task, solver)
-        rundir = optimize_and_save_data(
+        opt_stats = get_optimization_stats_warm_start(cfg)
+
+        rundir, opt_stats = optimize_and_save_data(
             cfg_ws,
             sim,
             task,
             solver,
             hydra_rundir,
-            solver_state_0=solver_state_0,
+            solver_state_0,
+            opt_stats,
         )
         cfg.warm_start.rundir = rundir
 
@@ -48,7 +52,10 @@ def main(cfg):
 
     # Optimize single shooting
     if solver.cfg.N_it > 0:
+
         solver_state_0 = get_warm_start_state_solver(cfg, sim, task, solver)
+        opt_stats = get_optimization_stats_warm_start(cfg)
+
         rundir = optimize_and_save_data(
             cfg,
             sim,
@@ -56,6 +63,7 @@ def main(cfg):
             solver,
             hydra_rundir,
             solver_state_0,
+            opt_stats,
         )
         
 if __name__ == "__main__":
