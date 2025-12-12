@@ -59,7 +59,7 @@ def main():
     parser.add_argument(
         "--npz",
         type=str,
-        default="sbto/data/pretraining_actor_input.npz",
+        default="sbto/pretraining/rollout_time_x_u_obs_traj.npz",
         help="Path to RL-format NPZ with keys x,u,o,c,...",
     )
     parser.add_argument(

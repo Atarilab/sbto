@@ -218,8 +218,8 @@ def build_pretraining_npz(in_path: str, out_path: str) -> None:
 
 
 def main():
-    in_path = "sbto/data/rollout_time_x_u_obs_traj.npz"
-    out_path = "sbto/data/pretraining_actor_input.npz"
+    in_path = "sbto/pretraining/rollout_time_x_u_obs_traj.npz"
+    out_path = "sbto/pretraining/pretraining_actor_critic_input.npz"
     build_pretraining_npz(in_path, out_path)
 
 

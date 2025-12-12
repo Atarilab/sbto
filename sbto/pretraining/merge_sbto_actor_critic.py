@@ -3,6 +3,18 @@ import argparse
 import torch
 
 
+"""
+
+HOW TO RUN:
+
+cd sbto/pretraining   
+python merge_sbto_actor_critic.py \
+  --save-dir ./pretrained_sbto \
+  --out model_sbto_pretrained.pt
+  
+  """
+
+
 def main():
     p = argparse.ArgumentParser()
 
@@ -19,12 +31,13 @@ def main():
 
     actor_ckpt = torch.load(actor_path, map_location="cpu")
     critic_ckpt = torch.load(critic_path, map_location="cpu")
-
+    
+    #Extract weights only
     actor_sd = actor_ckpt["actor_state_dict"]
     critic_sd = critic_ckpt["critic_state_dict"]
 
     model_sd = {}
-
+    # Rename the keys to match MJLab
     for k, v in actor_sd.items():
         if k.startswith("norm."):
             new_k = "actor_obs_normalizer." + k[len("norm.") :]
@@ -54,13 +67,3 @@ def main():
 if __name__ == "__main__":
     main()
 
-"""
-
-HOW TO RUN:
-
-cd sbto/pretraining   
-python merge_sbto_actor_critic.py \
-  --save-dir ./pretrained_sbto \
-  --out model_sbto_pretrained.pt
-  
-  """

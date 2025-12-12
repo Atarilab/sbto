@@ -3,7 +3,7 @@ import os
 import torch
 
 """
-Merges SBTO-pretrained nets with a full MJLAB checkpoint.
+Merges SBTO-pretrained nets with a full MJLAB checkpoint
 
 - sbto_ckpt  provides:
     model_state_dict = {actor.*, actor_obs_normalizer.*,
@@ -30,7 +30,7 @@ def main():
     parser.add_argument(
         "--base-ckpt",
         type=str,
-        default="sbto/pretraining/pretrained_sbto_results/model_500_sbto_actor.pt",
+        default="sbto/pretraining/model_500.pt",
         help="Original MJLAB checkpoint to steal optimizer_state_dict etc. from",
     )
     parser.add_argument(

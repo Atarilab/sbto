@@ -92,7 +92,7 @@ def add_rl_obs_from_x(npz_path: str, xml_path: str) -> None:
     adr_pos, dim_pos = mj_model.sensor_adr[sid_pos], mj_model.sensor_dim[sid_pos]
     adr_ori, dim_ori = mj_model.sensor_adr[sid_ori], mj_model.sensor_dim[sid_ori]
 
-    
+    # robot body pos/quat
     for i in range(total):
         mj_data.qpos[:] = qpos_flat[i]
         mj_data.qvel[:] = qvel_flat[i]
@@ -126,8 +126,10 @@ def add_rl_obs_from_x(npz_path: str, xml_path: str) -> None:
     out["anchor_pos_b"] = anchor_pos_b
     out["anchor_ori_b"] = anchor_ori_b
     out["base_linvel_angvel"] = np.concatenate([base_lin_vel, base_ang_vel], axis=-1)
-    out["actuator_pos"]    = joint_pos
-    out["actuator_vel"]    = joint_vel
+    out["base_lin_vel"] = base_lin_vel
+    out["base_ang_vel"] = base_ang_vel
+    out["joint_pos"]    = joint_vel
+    out["joint_vel"]    = joint_vel
     out["object_pos_w"]     = object_pos_w
     out["object_quat_w"]    = object_quat_w
     out["object_lin_vel_w"] = object_lin_vel_w
@@ -137,17 +139,23 @@ def add_rl_obs_from_x(npz_path: str, xml_path: str) -> None:
 
     np.savez(npz_path, **out)
     print(f"Updated npz with RL obs: {npz_path}")
-    print(f"  anchor_pos_b: {anchor_pos_b.shape}")
-    print(f"  anchor_ori_b: {anchor_ori_b.shape}")
-    print(f"  base_linvel_angvel: {(N,T,6)}")
-    print(f"  actuator_pos:    {joint_pos.shape}")
-    print(f"  actuator_vel:    {joint_vel.shape}")
-    print(f"  object_pos_w: {object_pos_w.shape}")
-    print(f"  object_quat_w: {object_quat_w.shape}")
+    print(f"  anchor_pos_b:        {anchor_pos_b.shape}")
+    print(f"  anchor_ori_b:        {anchor_ori_b.shape}")
+    print(f"  base_linvel_angvel:  {(N, T, 6)}")
+    print(f"  base_lin_vel:        {base_lin_vel.shape}")
+    print(f"  base_ang_vel:        {base_ang_vel.shape}")
+    print(f"  joint_pos:        {joint_pos.shape}")
+    print(f"  joint_vel:        {joint_vel.shape}")
+    print(f"  object_pos_w:        {object_pos_w.shape}")
+    print(f"  object_quat_w:       {object_quat_w.shape}")
+    print(f"  object_lin_vel_w:    {object_lin_vel_w.shape}")
+    print(f"  object_ang_vel_w:    {object_ang_vel_w.shape}")
+    print(f"  robot_body_pos_w:    {robot_body_pos_w.shape}")
+    print(f"  robot_body_quat_w:   {robot_body_quat_w.shape}")
 
 
 def main():
-    npz_path = "sbto/data/rollout_time_x_u_obs_traj.npz"
+    npz_path = "sbto/pretraining/rollout_time_x_u_obs_traj.npz"
     xml_path = "sbto/models/unitree_g1/scene_29dof.xml"
     
     add_rl_obs_from_x(npz_path, xml_path)

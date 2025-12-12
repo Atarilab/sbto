@@ -49,7 +49,7 @@ def plot_log(save_dir, log_name, title):
 
 def main():
     base_dir = os.path.dirname(__file__)
-    npz_path = os.path.abspath(os.path.join(base_dir, "../data/pretraining_actor_input.npz"))
+    npz_path = os.path.abspath(os.path.join(base_dir, "pretraining_actor_critic_input.npz"))
 
     # ONE shared dir for both:
     save_dir = os.path.join(base_dir, "pretrained_sbto")

@@ -94,7 +94,7 @@ class SbtoCriticDataset(Dataset):
 
         N, T, _ = object_pos_error.shape
 
-        # same std and weights as env_cfg (from mjlab2):
+        # same std and weights from mjlab2
         std_pos = 0.25
         std_ori = 0.3
         w_pos = 1.0
