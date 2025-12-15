@@ -1,0 +1,7 @@
+partition: cm4_inter
+clusters: cm4
+nodes: 1
+cpus: 112
+time: 08:00:00
+jobname: sbto
+mem: 300G

@@ -1,0 +1,14 @@
+# Save figures
+save_fig: true
+# Save video
+save_video: true
+# Split state trajectory in saved data
+split_state: true
+# Save all samples and costs from the optimization
+save_samples_costs: false
+# Save top trajectories from the optimization
+# if 0 < <save_top> < 1: save top <save_top>% trajectories
+# if <save_top> >= 1: save top #<save_top> trajectories
+save_top: 32
+# Remove keys from data
+remove_keys: ["x", "o"]

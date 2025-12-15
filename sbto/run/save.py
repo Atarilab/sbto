@@ -17,6 +17,8 @@ from sbto.tasks.task_base import OCPBase
 from sbto.solvers.solver_base import SolverState, SamplingBasedSolver
 from sbto.utils.plotting import plot_contact_plan, plot_costs, plot_mean_cov, plot_state_control
 from sbto.utils.viewer import render_and_save_trajectory
+from sbto.data.postprocess import split_x_traj
+from sbto.data.aggregate import get_top_samples
 
 Array = npt.NDArray[np.float64]
 
@@ -30,6 +32,8 @@ INITIAL_SOLVER_STATE_SUFFIX = "0"
 FINAL_SOLVER_STATE_SUFFIX = "final"
 HYDRA_CFG = ".hydra"
 MJ_MODEL_NAME = "mj_model"
+BEST_TRAJECTORY_FILENAME = "best_trajectory"
+TOP_TRAJECTORIES_FILENAME = "top_trajectories"
 
 def get_date_time() -> str:
     now = datetime.now()
@@ -197,56 +201,132 @@ def save_results(
     solver_state_final: SolverState,
     all_samples: Array,
     all_costs: Array,
+    exp_name: str = "",
     description: str = "",
     hydra_rundir: str = "",
     save_fig: bool = True,
     save_video: bool = True,
     save_samples_costs: bool = True,
     multiple_shooting: bool = False,
+    split_state: bool = False,
+    save_top: float = 0.,
+    remove_keys: List[str] = [],
     ) -> str:
-    task_name = task.__class__.__name__
-    result_dir = create_dirs(task_name, description)
+    exp_name = task.__class__.__name__ if not exp_name else exp_name
+    result_dir = create_dirs(exp_name, description)
 
+    # Save config
+    copy_hydra_config(hydra_rundir, result_dir)
+
+    # Save mj model
     save_mj_model(result_dir, sim.mj_scene.edit.mj_spec)
 
-    print(f"[{description or 'Unnamed'}] Best cost: {solver_state_final.min_cost_all}")
-    best_knots = solver_state_final.best_all
-    # Get best traj
-    if multiple_shooting:
-        x_shooting = task.ref.x[sim.t_knots]
-        t, x_traj, qdes_traj, obs_traj = map(np.squeeze, sim.rollout_multiple_shooting(best_knots, x_shooting, with_x0=True))
-    else:
-        t, x_traj, qdes_traj, obs_traj = map(np.squeeze, sim.rollout(best_knots, with_x0=True))
-
-    save_trajectories(result_dir, t, x_traj, qdes_traj)
-    N_it_samples = all_samples.shape[0]
-    copy_hydra_config(hydra_rundir, result_dir)
+    # Save inital and final solver state
     if solver_state_0:
         save_solver_state(result_dir, solver_state_0, INITIAL_SOLVER_STATE_SUFFIX)
     save_solver_state(result_dir, solver_state_final, FINAL_SOLVER_STATE_SUFFIX)
     
-    if save_samples_costs:
-        save_all_samples_and_cost(result_dir, all_samples, all_costs[-N_it_samples:])
+    N_it_samples = all_samples.shape[0]
+    last_costs = all_costs[-N_it_samples:]
 
+    # Save all samples and costs from the optimization
+    if save_samples_costs:
+        print(f"Saving all samples and costs.")
+        N_it_samples = all_samples.shape[0]
+        save_all_samples_and_cost(result_dir, all_samples, last_costs)
+    
+    # Rollout best trajectories (with initial states)
+    N_top_samples = 1 # Save the best one by default
+    if save_top > 0.:
+        # How many top traj to save
+        if save_top >= 1:
+            N_top_samples = int(save_top)
+        else:
+            percentile = save_top
+            threshold = np.percentile(last_costs, percentile)
+            top_mask = last_costs <= threshold
+            N_top_samples = np.sum(top_mask)
+ 
+    top_samples, top_costs = get_top_samples(last_costs, all_samples, N_top_samples)
+
+    if multiple_shooting:
+        x_shooting = task.ref.x[sim.t_knots]
+        t, x_traj, qdes_traj, obs_traj = map(np.squeeze, sim.rollout_multiple_shooting(top_samples, x_shooting, with_x0=True))
+    else:
+        t, x_traj, qdes_traj, obs_traj = map(np.squeeze, sim.rollout(top_samples, with_x0=True))
+
+    print(f"[{description or 'Unnamed'}] Best cost: {solver_state_final.min_cost_all}")
+
+    # By default all data keys are saved
+    data_traj = {
+        "time": t,
+        "x": x_traj,
+        "u": qdes_traj,
+        "o": obs_traj,
+        "c": top_costs,
+    }
+
+    # Split state
+    if split_state:
+        splitted_data = split_x_traj(x_traj, mj_model=sim.mj_scene.mj_model)
+        data_traj.update({
+            k: v
+            for k, v in splitted_data.items()
+            if not k in data_traj
+        })
+
+    # Save best
+    file_path = os.path.join(result_dir, f"{BEST_TRAJECTORY_FILENAME}.npz")
+    if N_top_samples == 1:
+        best_data = data_traj
+    else:
+        arg_min_cost = np.argmin(top_costs)
+        best_data = {k: np.squeeze(v[arg_min_cost]) for k, v in data_traj.items()}
+    np.savez_compressed(
+        file_path,
+        **{
+            k: v for k, v in best_data.items()
+            if k not in remove_keys
+        }
+    )
+    
+    # Remove keys from data
+    for k in remove_keys:
+        if k in data_traj.keys():
+            del data_traj[k]
+
+    # Save top trajectories
+    if N_top_samples > 1:
+        print(f"Saving top {N_top_samples} trajectories.")
+        file_path = os.path.join(result_dir, f"{TOP_TRAJECTORIES_FILENAME}.npz")
+        np.savez_compressed(
+            file_path,
+            **data_traj
+        )
+    
+    # Save all figures
     if save_fig:
+        best_knots = solver_state_final.best_all
         save_plots(
             result_dir,
             task,
-            t,
-            x_traj,
-            qdes_traj,
-            obs_traj,
+            best_data["time"],
+            best_data["x"],
+            best_data["u"],
+            best_data["o"],
             best_knots,
             solver_state_final.mean,
             solver_state_final.cov,
             all_costs,
         )
+
+    # Save video rendering
     if save_video:
         render_and_save_trajectory(
             sim.mj_scene.mj_model,
             sim.mj_scene.mj_data,
-            t,
-            x_traj,
+            best_data["time"],
+            best_data["x"],
             save_path=result_dir,
         )
 

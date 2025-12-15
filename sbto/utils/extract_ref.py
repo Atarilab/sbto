@@ -151,10 +151,10 @@ class ReferenceMotion:
         # Initial time array
         self.time = compute_time_array(self.fps, len(self.qpos))
 
-        # Mujoco model properties
         self.mj_model = mj_model
-        self.act_ids = self.mj_model.actuator_trnid[:, 0]
-        self.act_qpos_adr = self.mj_model.jnt_qposadr[self.act_ids]
+        if self.mj_model is not None:
+            self.act_ids = self.mj_model.actuator_trnid[:, 0]
+            self.act_qpos_adr = self.mj_model.jnt_qposadr[self.act_ids]
     
         # Apply shift
         self.shift_start_time(t0)

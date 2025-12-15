@@ -126,6 +126,7 @@ def optimize_incremental_opt(
     opt_stats: Optional[OptimizationStats] = None,
     N_max_it_per_knots: int = 50,
     min_std_next: float = 1.e-2,
+    min_std_final: float = 1.e-3,
     ) -> Tuple[SolverState, Array, Array]:
     all_costs = []
     all_samples = []
@@ -144,11 +145,9 @@ def optimize_incremental_opt(
     nit_total = 0
 
     for N_knots_to_opt in pbar_knots:
-        # N_knots_to_opt += 1  # starts with first 2 knots
         nit = 0
         max_std_diag = np.inf
-        pbar_knots.set_description_str(f"Opt. first {N_knots_to_opt+1} knots")
-        pbar_it = trange(N_max_it_per_knots, leave=False)
+        
         if N_knots_to_opt + 1 < sim.Nknots:
             t_end = sim.t_knots[N_knots_to_opt + 1]
         else:
@@ -157,6 +156,15 @@ def optimize_incremental_opt(
         solver.opt_first_dim(N_var_to_opt)
 
         all_knots_optimized = N_knots_to_opt == sim.Nknots-1
+
+        # For last iterations
+        if all_knots_optimized:
+            min_std_next = min_std_final
+            N_max_it_per_knots *= 10
+
+        pbar_knots.set_description_str(f"Opt. first {N_knots_to_opt+1} knots")
+        pbar_it = trange(N_max_it_per_knots, leave=False)
+
         while min_std_next < max_std_diag and nit < N_max_it_per_knots:
             opt_stats.add_iteration(N_knots_to_opt+1, t_end)
             # Reset best knots when all knots are optimized

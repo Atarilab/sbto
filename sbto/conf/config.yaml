@@ -1,33 +1,14 @@
 defaults:
   - task: g1/gait
   - solver: cem
-  - slurm: default
+  - slurm: none
+  - warm_start: none
+  - data_processing: default
   - _self_
 
+# Experiment name (will be root dir of the data)
+exp_name: ""
 # Description (as a suffix to rundir)
 description: ""
-# Save figures
-save_fig: true
-# Save video
-save_video: true
-# Save samples and costs from the optimization
-save_samples_costs: true
 # If a reference is provided, initial knots are taken from the reference
 init_knots_from_ref: false
-
-### Warm starting
-warm_start:
-  # Start from solver state in <rundir>
-  rundir: ""
-  # Add value on the diagonal of the cov after warm starting
-  add_cov_diag: 0.
-  # Iterations of warm start (if 0, same number as in solver config)
-  N_it: 0
-  # Warm start with multiple shooting (shooting nodes from referece)
-  multiple_shooting: false
-  # Warm start with incremental optimization of the knots
-  incremental: false
-  # Max number of iterations per increment
-  N_max_incr: 50
-  # Minimum value of the diag covariance to increment the number of var to opt
-  min_std_next: 4.0e-2

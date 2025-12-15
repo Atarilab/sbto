@@ -2,8 +2,11 @@ from hydra.utils import instantiate
 from typing import Optional
 import copy
 import os
+import glob
+import yaml
 import numpy as np
 from functools import partial
+from omegaconf import OmegaConf
 
 from sbto.sim.sim_base import SimRolloutBase
 from sbto.tasks.task_base import OCPBase
@@ -41,6 +44,7 @@ def optimize_and_save_data(
             optimize_incremental_opt,
             N_max_it_per_knots=cfg.warm_start.N_max_incr,
             min_std_next=cfg.warm_start.min_std_next,
+            min_std_final=cfg.warm_start.min_std_final,
         )
 
     # Single shooting
@@ -62,12 +66,16 @@ def optimize_and_save_data(
         solver_state_final,
         all_samples,
         all_costs,
+        cfg.exp_name,
         cfg.description,
         hydra_rundir,
-        cfg.save_fig,
-        cfg.save_video,
-        cfg.save_samples_costs,
+        cfg.data_processing.save_fig,
+        cfg.data_processing.save_video,
+        cfg.data_processing.save_samples_costs,
         cfg.warm_start.multiple_shooting,
+        cfg.data_processing.split_state,
+        cfg.data_processing.save_top,
+        cfg.data_processing.remove_keys,
     )
 
     opt_stats.save(rundir)
@@ -97,7 +105,9 @@ def get_warm_start_state_solver(cfg, sim, task, solver) -> SolverState:
 
     if cfg.warm_start.rundir and os.path.exists(cfg.warm_start.rundir):
         solver_state_0 = get_final_state_from_rundir(cfg.warm_start.rundir, solver)
-        solver.reset_min_cost_best(solver_state_0)
+
+        if not cfg.warm_start.cp_best:
+            solver.reset_min_cost_best(solver_state_0)
 
         if cfg.warm_start.add_cov_diag > 0.:
             solver.init_state()
@@ -127,3 +137,41 @@ def get_optimization_stats_warm_start(cfg) -> OptimizationStats | None:
     else:
         opt_stats = None
     return opt_stats
+
+def load_yaml(yaml_path):
+    d = {}
+    if os.path.exists(yaml_path):
+        with open(yaml_path, "r") as f:
+            d = yaml.safe_load(f)
+    return d
+
+def save_yaml(yaml_path, data):
+    if os.path.exists(yaml_path):
+        with open(yaml_path, "w") as f:
+            yaml.safe_dump(data, f, sort_keys=False)
+
+def update_cfg_from_warm_start(cfg, hydra_rundir: str):
+    rundir = cfg.warm_start.rundir
+    
+    if rundir and os.path.exists(rundir):
+        
+        # update config params from warm_start config
+        cfg_paths = glob.glob(
+            f"{rundir}/**/config.yaml",
+            include_hidden=True,
+            recursive=True
+        )
+        if len(cfg_paths) > 0:
+            cfg_dict = load_yaml(cfg_paths[0])
+            # copy motion path and Nknots
+            cfg_warm_start = OmegaConf.create(cfg_dict)
+            cfg.task.cfg_ref.motion_path = cfg_warm_start.task.cfg_ref.motion_path
+            cfg.task.sim.cfg.Nknots = cfg_warm_start.task.sim.cfg.Nknots
+            # save yaml
+
+            current_cfg_path = glob.glob(
+                f"{hydra_rundir}/**/config.yaml",
+                include_hidden=True,
+                recursive=True
+            )[0]
+            save_yaml(current_cfg_path, OmegaConf.to_object(cfg))
