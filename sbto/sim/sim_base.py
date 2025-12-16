@@ -46,8 +46,16 @@ class SimRolloutBase(ABC):
         # no scaling by default
         self.scaling = scaling
 
-    def randomize_t_knots(self, max: int, seed: int = 0):
-        rng = np.random.default_rng(seed)
+    def randomize_t_knots(
+            self,
+            max: int,
+            *,
+            rng: Optional[np.random.Generator] = None,
+            seed: Optional[int] = None,
+        ):
+        if rng is None:
+            rng = np.random.default_rng(seed)
+
         N = len(self.t_knots) - 2
         rand_steps = rng.integers(-max, max, N, endpoint=True)
         min_dt = np.min(np.diff(self.t_knots))

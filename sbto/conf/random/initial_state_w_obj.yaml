@@ -1,0 +1,15 @@
+defaults:
+  - none.yaml
+  - _self_
+
+rand_t_knots: 0
+scale_q: 0.05
+scale_v: 0.1
+
+obj_x_range: [-0.02, 0.03]
+obj_y_range: [-0.015, 0.015]
+obj_z_range: [0.0, 0.0]
+obj_w_range: [-0.3, 0.3]
+
+max_base_pos_dist: 0.25
+max_base_quat_dist: 0.25

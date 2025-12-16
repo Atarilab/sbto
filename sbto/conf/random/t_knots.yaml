@@ -1,0 +1,7 @@
+defaults:
+  - none.yaml
+  - _self_
+
+cfg:
+  rand_t_knots: 10
+

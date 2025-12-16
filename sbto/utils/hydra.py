@@ -89,8 +89,9 @@ def optimize_and_save_data(
 def instantiate_from_cfg(cfg):
     sim = instantiate(cfg.task.sim)
     task = instantiate(cfg.task, sim=sim)
+    random = instantiate(cfg.random, sim=sim, seed=cfg.solver.cfg.seed)
     solver = instantiate(cfg.solver, D=sim.Nvars_u)
-    return sim, task, solver
+    return sim, task, solver, random
 
 def get_initial_state_solver_from_ref(sim, task, solver):
     if not isinstance(task, TaskMjRef):

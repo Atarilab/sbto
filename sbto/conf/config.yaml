@@ -4,6 +4,7 @@ defaults:
   - slurm: none
   - warm_start: none
   - data_processing: default
+  - random: none
   - _self_
 
 # Experiment name (will be root dir of the data)
