@@ -16,5 +16,3 @@ min_std_next: 0.
 min_std_final: 0.
 # Copy best samples from the warm start solution when initializing the solver state
 cp_best: false
-# Randomize the knots time
-rand_t_knots: 0
