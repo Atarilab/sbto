@@ -216,7 +216,7 @@ def load_dataset_with_errors(dataset_root: str, num_workers=None) -> pd.DataFram
     return df
 
 def load_data(path):
-    return path, dict(np.load(path, mmap_mode="r+"))
+    return path, dict(np.load(path, mmap_mode="r", allow_pickle=True))
 
 def load_all_trajectories_dataset(dataset_root: str, only_best_traj: bool = False, num_workers = 20) -> pd.DataFrame:
     FILENAME = "best_trajectory.npz" if only_best_traj else "top_trajectories.npz"

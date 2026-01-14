@@ -166,17 +166,6 @@ class RandomizeRollout:
             has_nonzero_range(self.cfg.obj_w_range),
         ])
 
-
-    def is_randomize(self) -> bool:
-        return any([
-            self.cfg.scale_q != 0.0,
-            self.cfg.scale_v != 0.0,
-            any(v != 0.0 for v in self.cfg.obj_x_range),
-            any(v != 0.0 for v in self.cfg.obj_y_range),
-            any(v != 0.0 for v in self.cfg.obj_z_range),
-            any(v != 0.0 for v in self.cfg.obj_w_range),
-        ])
-
     def is_randomize_obj(self) -> bool:
         return any([
             any(v != 0.0 for v in self.cfg.obj_x_range),

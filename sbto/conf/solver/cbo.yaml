@@ -1,0 +1,14 @@
+_target_: sbto.solvers.cbo.CBO
+cfg:
+  _target_: sbto.solvers.cbo.ConfigCBO
+  N_samples: 1024
+  N_it: 100
+  sigma0: 1.
+  quasi_random: False
+  seed: 0
+  sampler: normal
+
+  beta: 0.05
+  noise_model: "coordinate"
+  delta: 0.8
+  dt: 0.1

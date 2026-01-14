@@ -1,0 +1,18 @@
+_target_: sbto.solvers.pcbo.PCBO
+cfg:
+  _target_: sbto.solvers.pcbo.ConfigPCBO
+  N_samples: 1024
+  N_it: 100
+  sigma0: 1.
+  quasi_random: False
+  seed: 0
+  sampler: normal
+
+  beta: 1.
+  noise_model: "standard"
+  delta: 0.1
+  dt: 0.01
+  kernel: "confidence"
+  kappa_init: 0.15
+  kappa_final: 0.05
+  annealing_strategy: "linear"

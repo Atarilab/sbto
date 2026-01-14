@@ -1,0 +1,7 @@
+<mujoco>
+    <sensor>
+        <!-- feet contact -->
+        <contact geom1="floor" subtree2="left_ankle_roll_link" reduce="maxforce" data="found force" num="1" name="left_foot"/>
+        <contact geom1="floor" subtree2="right_ankle_roll_link" reduce="maxforce" data="found force" num="1" name="right_foot"/>
+    </sensor>
+</mujoco>

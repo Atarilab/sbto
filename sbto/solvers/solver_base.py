@@ -55,6 +55,8 @@ class SamplingBasedSolver(ABC):
         self._mask_cov = np.ones((self.D, self.D))
         self.n_dim = self.D
 
+        self.logs = {}
+
     def opt_first_dim(self, n_dim: int = -1):
         """
         Set masks to optimize only the first <n_dim> variables.
@@ -101,6 +103,12 @@ class SamplingBasedSolver(ABC):
             min_cost=np.inf,
             min_cost_all=np.inf,
         )
+    
+    def set_state(self, state: SolverState):
+        self.state = copy.deepcopy(state)
+
+    def increment_criteria(self):
+        return np.max(self.state.cov[:, :self.n_dim])
 
     @staticmethod
     def reset_min_cost_best(state: SolverState):

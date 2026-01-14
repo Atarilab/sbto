@@ -78,7 +78,7 @@ def optimize_and_save_data(
         cfg.data_processing.n_last_it,
         cfg.data_processing.remove_keys,
     )
-
+    solver.save_center_it(rundir)
     opt_stats.save(rundir)
 
     return rundir, opt_stats
