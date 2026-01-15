@@ -141,7 +141,7 @@ class RandomizeRollout:
         self.rng = np.random.default_rng(seed)
 
         if cfg.rand_t_knots > 0:
-            sim.randomize_t_knots(cfg.rand_t_knots, seed)
+            sim.randomize_t_knots(cfg.rand_t_knots, rng=self.rng)
 
         if self.is_randomized():
             self._set_random_initial_state()
