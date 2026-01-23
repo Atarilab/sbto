@@ -2,7 +2,7 @@ import numpy as np
 import numpy.typing as npt
 from abc import ABC, abstractmethod
 from typing import Any, Tuple, Callable, Optional
-from scipy.interpolate import interp1d, PchipInterpolator
+from scipy.interpolate import interp1d, PchipInterpolator, Akima1DInterpolator
 from functools import partial
 import time
 
@@ -101,12 +101,21 @@ class SimRolloutBase(ABC):
 
         if T_end >= 0 and T_end < self.T:
             Nknots_interp = np.searchsorted(self.t_knots, T_end, side='right', sorter=None)
+            Nknots_interp = min(Nknots_interp + 2, self.Nknots) # + 2 to ensure interpolation with quad/cubic splines
         else:
             T_end = self.T
             Nknots_interp = self.Nknots
 
         if self.interp_kind == "pchip":
             f = PchipInterpolator(
+                self.t_knots[:Nknots_interp],
+                u_knots[:, :Nknots_interp, :],
+                axis=-2,
+                extrapolate=False
+            )
+
+        elif self.interp_kind == "akima":
+            f = Akima1DInterpolator(
                 self.t_knots[:Nknots_interp],
                 u_knots[:, :Nknots_interp, :],
                 axis=-2,
