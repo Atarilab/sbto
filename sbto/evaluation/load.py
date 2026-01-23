@@ -43,21 +43,21 @@ def load_configs(dataset_root: str) -> dict:
         recursive=True,
         include_hidden=True
     )
-    paths = filter(
-        lambda path: not "__ws_" in path,
-        paths
-    )
+    # paths = filter(
+    #     lambda path: "__ws_" in path,
+    #     paths
+    # )
 
     filter_out = lambda k_cfg: k_cfg.startswith("_") and k_cfg.endswith("_")
 
     configs = {}
     for p in paths:
-        rundir = os.path.dirname(p).replace("/.hydra", "")
+        rundir = os.path.dirname(os.path.dirname(p))
         configs[rundir] = flatten_dict(load_yaml(p), filter=filter_out)
 
     return configs
 
-def load_opt_stats_from_rundir(rundir: str) -> dict:
+def load_opt_stats_from_rundir(rundir: str, N_samples) -> dict:
     """
     RETURNS:
         { rundir_path : opt_stats }
@@ -68,7 +68,7 @@ def load_opt_stats_from_rundir(rundir: str) -> dict:
         data = {
             "opt_n_it": opt_stats["n_it"],
             "opt_duration": opt_stats["duration"],
-            "total_sim_timesteps": total_sim_timesteps(opt_stats)
+            "total_sim_timesteps": total_sim_timesteps(opt_stats) * N_samples
         }
     else:
         data = {}
@@ -86,14 +86,25 @@ def instantiate_ref_from_cfg(cfg, dt : float = 0.):
 
     cfg_ref = instantiate(cfg.task.cfg_ref)
 
-    ref = ReferenceMotion(
-        cfg_ref.motion_path,
-        mj_model,
-        cfg_ref.t0,
-        cfg_ref.speedup,
-        cfg_ref.z_offset,
-        dt=dt,
-    )
+    try:
+        ref = ReferenceMotion(
+            cfg_ref.motion_path,
+            mj_model,
+            cfg_ref.t0,
+            cfg_ref.t_end,
+            cfg_ref.speedup,
+            cfg_ref.z_offset,
+            dt=dt,
+        )
+    except:
+        ref = ReferenceMotion(
+            cfg_ref.motion_path,
+            mj_model,
+            cfg_ref.t0,
+            cfg_ref.speedup,
+            cfg_ref.z_offset,
+            dt=dt,
+        )
 
     # free large mujoco model immediately
     if mj_model is not None:
@@ -101,20 +112,49 @@ def instantiate_ref_from_cfg(cfg, dt : float = 0.):
 
     return ref
 
+def split_traj(qpos, qvel):
+    id_splits_qpos = [
+        7,
+        29,
+    ]
+    id_splits_qvel = [
+        6,
+        29,
+    ]
+    data = {}
+    (
+        data["base_xyz_quat"],
+        data["actuator_pos"],
+        data["obj_0_xyz_quat"],
+    ) = np.split(qpos, np.cumsum(id_splits_qpos), axis=-1)
+    (
+        data["base_linvel_angvel"],
+        data["actuator_vel"],
+        data["obj_0_linvel_angvel"],
+    ) = np.split(qvel, np.cumsum(id_splits_qvel), axis=-1)
+    return data
+
 def compute_stats_rundir(rundir: str):
 
     cfg = OmegaConf.create(get_config_dict_from_rundir(rundir))
     
-
     traj_path = os.path.join(rundir, "best_trajectory.npz")
-    data = np.load(traj_path, mmap_mode="r")
-    all_traj = os.path.join(rundir, "top_trajectories.npz")
-    min_cost = np.min(np.load(all_traj, mmap_mode="r")["c"])
+    data = dict(np.load(traj_path, mmap_mode="r"))
+
+    
+    # traj_path = os.path.join(rundir, "time_x_u_traj.npz")
+    # data = dict(np.load(traj_path, mmap_mode="r"))
+    # qpos, qvel = np.split(data["x"], [43], axis=-1)
+    # data.update(split_traj(qpos, qvel))
+
+    solver_state_path = os.path.join(rundir, "solver_state_final.npz")
+    final_state = np.load(solver_state_path)
+    min_cost = float(final_state["min_cost_all"])
 
     time = data["time"]
     dt = np.mean(np.diff(time))
     ref = instantiate_ref_from_cfg(cfg, dt)
-    
+    ref_filename = os.path.split(cfg.task.cfg_ref.motion_path)[-1]
 
     obj_all = data["obj_0_xyz_quat"]
     base_all = data["base_xyz_quat"]
@@ -143,9 +183,10 @@ def compute_stats_rundir(rundir: str):
         "act_acc_ratio": float(act_acc_ratio),
         "T": len(time),
         "min_cost": min_cost,
+        "ref_filename": ref_filename,
     }
 
-    opt_stats = load_opt_stats_from_rundir(rundir)
+    opt_stats = load_opt_stats_from_rundir(rundir, cfg.solver.cfg.N_samples)
     stats.update(opt_stats)
 
     del cfg, ref, data
@@ -153,9 +194,13 @@ def compute_stats_rundir(rundir: str):
 
 
 def get_all_rundirs(dataset_root):
-    for root, dirs, files in os.walk(dataset_root):
-        if "best_trajectory.npz" in files:
-            yield root
+
+    paths = glob.glob(
+        f"{dataset_root}/**/*__ws_incr*/",
+        recursive=True,
+        include_hidden=True
+    )
+    return paths
 
 
 def _worker_compute_errors(rundir):
@@ -165,10 +210,10 @@ def _worker_compute_errors(rundir):
         return rundir, ex
 
 
-def compute_all_errors_parallel(dataset_root, num_workers=None):
+def compute_all_errors_parallel(rundirs, num_workers=None):
 
-    rundirs = list(get_all_rundirs(dataset_root))
-    print(f"Found {len(rundirs)} rundirs.")
+    # rundirs = list(get_all_rundirs(dataset_root))
+    # print(f"Found {len(rundirs)} rundirs.")
 
     num_workers = num_workers or mp.cpu_count()
 
@@ -180,7 +225,6 @@ def compute_all_errors_parallel(dataset_root, num_workers=None):
                 print(f"[WARN] Failed {rundir}: {result}")
                 continue
             errors_by_rundir[rundir] = result
-
     return errors_by_rundir
 
 
@@ -197,7 +241,7 @@ def load_dataset_with_errors(dataset_root: str, num_workers=None) -> pd.DataFram
     configs = load_configs(dataset_root)
 
     print("Computing errors (parallel)...")
-    errors = compute_all_errors_parallel(dataset_root, num_workers=num_workers)
+    errors = compute_all_errors_parallel(configs.keys(), num_workers=num_workers)
 
     print(f"Merging configs ({len(configs)}) and errors ({len(errors)})...")
 
@@ -241,6 +285,7 @@ if __name__ == "__main__":
 
     DATASET_ROOT = "datasets/SBTO_OmniRetarget_Dataset"
     DATASET_ROOT = "datasets/OmniRetarget/"
+    DATASET_ROOT = "datasets/G1RobotObjRef20KnotsMPCCost"
 
     df = load_dataset_with_errors(DATASET_ROOT, num_workers=60)
     print(df.head())

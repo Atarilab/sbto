@@ -321,7 +321,7 @@ if __name__ == "__main__":
     DATASET_ROOT = "datasets/G1RobotObjRef20Knots"
     mp.set_start_method("spawn", force=True)
     df = load_dataset_with_errors(DATASET_ROOT, num_workers=60)
-    df = df.nsmallest(200, "min_cost")
+    # df = df.nsmallest(200, "min_cost")
     # single-figure histograms
     # plot_error_histograms(df)
     plot_T_vs_duration(df)

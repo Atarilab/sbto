@@ -21,6 +21,7 @@ REF_DATASET_PATH = "./datasets/robot-object"
 def instantiate_ref_from_path(ref_motion_path: str, dt):
     mj_model = None
     t0 = 0.
+    t_end = 0.
     speedup = 1.
     z_offset = 0.
 
@@ -28,10 +29,12 @@ def instantiate_ref_from_path(ref_motion_path: str, dt):
         ref_motion_path,
         mj_model,
         t0,
+        t_end,
         speedup,
         z_offset,
         dt=dt,
     )
+
 
     # free large mujoco model immediately
     if mj_model is not None:
@@ -102,7 +105,7 @@ def compute_stats_traj(traj_path: str):
     time = np.linspace(0, N*dt, N, endpoint=False)
 
     act_acc, act_acc_ref = compute_total_act_acc(data_processed["actuator_vel"], ref.dof_v, dt)
-    act_acc_ratio = act_acc / act_acc_ref
+    act_acc_ratio = act_acc 
 
     stats = {
         "err_pos_obj": float(compute_obj_pos_error(obj_pos, ref.object_root_pos)),
@@ -119,7 +122,20 @@ def compute_stats_traj(traj_path: str):
         "act_acc_ratio": float(act_acc_ratio),
         "T": len(time),
         "task.cfg_ref.motion_path": ref_motion_path,
+        "ref_filename": ref_motion_filename
     }
+
+    opt_steps = data["opt_steps"].squeeze()
+    # You need to rollout one more time to evaluate the cost
+    # and check if you do one more opt step...
+    # (unless you hit the max iter)
+    MAX_ITER = 16
+    N_samples = 1024
+    horizon = 1.2
+    dt = 0.01
+    # opt_steps[opt_steps <= MAX_ITER] = opt_steps + 1
+    stats["total_sim_timesteps"] = total_sim_timesteps_mpc(N_samples, opt_steps, horizon, dt)
+
 
     del ref, data, data_processed
     return stats
@@ -141,7 +157,7 @@ def _worker_compute_errors(rundir):
 def compute_all_errors_parallel(dataset_root, num_workers=None):
 
     all_traj_paths = glob.glob(
-        f"{dataset_root}/**/trajectory_comparison.npz",
+        f"{dataset_root}/**/trajectory_comparison_1.npz",
         recursive=True,
         include_hidden=True
     )
