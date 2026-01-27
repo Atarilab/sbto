@@ -3,28 +3,28 @@
 
   <worldbody>
     <body name="tube_0" pos="0.15 0.215 0.4075">
-      <geom name="tube_0" size="0.0075 0.4" type="capsule" rgba="0.6 0.6 0.6 1"/>
+      <geom name="tube_0" size="0.0075 0.4" type="capsule" density="100" rgba="0.6 0.6 0.6 1"/>
     </body>
     <body name="tube_1" pos="0.15 -0.215 0.4075">
-      <geom name="tube_1" size="0.0075 0.4" type="capsule" rgba="0.6 0.6 0.6 1"/>
+      <geom name="tube_1" size="0.0075 0.4" type="capsule" density="100" rgba="0.6 0.6 0.6 1"/>
     </body>
     <body name="tube_2" pos="-0.15 0.215 0.4075">
-      <geom name="tube_2" size="0.0075 0.4" type="capsule" rgba="0.6 0.6 0.6 1"/>
+      <geom name="tube_2" size="0.0075 0.4" type="capsule" density="100" rgba="0.6 0.6 0.6 1"/>
     </body>
     <body name="tube_3" pos="-0.15 -0.215 0.4075">
-      <geom name="tube_3" size="0.0075 0.4" type="capsule" rgba="0.6 0.6 0.6 1"/>
+      <geom name="tube_3" size="0.0075 0.4" type="capsule" density="100" rgba="0.6 0.6 0.6 1"/>
     </body>
     <body name="planck_0" pos="0 0 0.12">
-      <geom name="planck_0" size="0.15 0.215 0.01" type="box" rgba="0.8 0.6 0.4 1"/>
+      <geom name="planck_0" size="0.15 0.215 0.01" type="box" density="100" rgba="0.8 0.6 0.4 1"/>
     </body>
     <body name="planck_1" pos="0 0 0.29">
-      <geom name="planck_1" size="0.15 0.215 0.01" type="box" rgba="0.8 0.6 0.4 1"/>
+      <geom name="planck_1" size="0.15 0.215 0.01" type="box" density="100" rgba="0.8 0.6 0.4 1"/>
     </body>
     <body name="planck_2" pos="0 0 0.47">
-      <geom name="obj" size="0.15 0.215 0.01" type="box" rgba="0.8 0.6 0.4 1"/>
+      <geom name="obj" size="0.15 0.215 0.01" type="box" density="100" rgba="0.8 0.6 0.4 1"/>
     </body>
     <!-- <body name="planck_3" pos="0 0 0.825">
-      <geom name="planck_3" size="0.15 0.215 0.01" type="box" rgba="0.8 0.6 0.4 1"/>
+      <geom name="planck_3" size="0.15 0.215 0.01" type="box" density="100" rgba="0.8 0.6 0.4 1"/>
     </body> -->
   </worldbody>
 </mujoco>
