@@ -124,17 +124,37 @@ def compute_joint_pos_error(join_traj, ref_joint_traj):
 
     return err
 
-def compute_total_act_acc(qvel_traj, ref_qvel_traj, dt):
+import numpy as np
 
-    # Ensure both arrays have batch dimension
-    traj = np.asarray(qvel_traj)
-    ref = np.asarray(ref_qvel_traj)
+def compute_acc_from_pos(qpos_traj, dt):
+    """
+    Compute second-order finite-difference acceleration from joint positions.
 
-    traj_acc = finite_diff_qpos_traj(traj, dt)
-    ref_acc = finite_diff_qpos_traj(ref, dt)
+    qpos_traj: (T, nq) or (..., T, nq)
+    dt: timestep
+    """
+    qpos = np.asarray(qpos_traj)
 
-    traj_acc_sum = np.mean(np.abs(traj_acc).sum(axis=-1))
-    ref_acc_summ = np.mean(np.abs(ref_acc).sum(axis=-1))
+    # Second finite difference along time axis
+    acc = (qpos[..., 2:, :] - 2 * qpos[..., 1:-1, :] + qpos[..., :-2, :]) / (dt ** 2)
 
-    return traj_acc_sum, ref_acc_summ
+    return acc
 
+
+def compute_total_act_acc(qpos_traj, ref_qpos_traj, dt):
+    """
+    Compute smoothness metric for trajectory and reference.
+    Returns mean L1 norm of joint accelerations per timestep.
+    """
+
+    traj = np.asarray(qpos_traj)
+    ref  = np.asarray(ref_qpos_traj)
+
+    traj_acc = compute_acc_from_pos(traj, dt)
+    ref_acc  = compute_acc_from_pos(ref, dt)
+
+    # L1 norm over joints, mean over time
+    traj_acc_sum = np.mean(np.sum(np.abs(traj_acc), axis=-1))
+    ref_acc_sum  = np.mean(np.sum(np.abs(ref_acc), axis=-1))
+
+    return traj_acc_sum, ref_acc_sum
