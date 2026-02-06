@@ -79,6 +79,8 @@ def render_and_save_trajectory(
     fps: int = 30,
     width: int = 640,
     height: int = 480,
+    scene_option = None,
+    renderer_option = {},
 ):
     """
     Render a trajectory in MuJoCo using mujoco.Renderer and save it as a video.
@@ -116,10 +118,12 @@ def render_and_save_trajectory(
     nq = mj_model.nq
     nv = mj_model.nv
     n_frames = 0
-    
+
+    for flags_id, flag in renderer_option.items():
+        renderer.scene.flags[flags_id] = flag
+
     for i, timestep in enumerate(np.squeeze(t)):
-        # Set MuJoCo state
-        mujoco.mj_resetData(mj_model, mj_data)
+
         mj_data.qpos[:] = x_traj[i, :nq]
         mj_data.qvel[:] = x_traj[i, nq:nq + nv]
         mujoco.mj_forward(mj_model, mj_data)
@@ -127,7 +131,7 @@ def render_and_save_trajectory(
         # Render frame
         if n_frames < (timestep * fps):
             n_frames += 1
-            renderer.update_scene(mj_data, camera="track")
+            renderer.update_scene(mj_data, camera="track", scene_option=scene_option)
             frame = renderer.render()
             # Convert RGB to BGR for OpenCV and write
             frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
@@ -136,10 +140,6 @@ def render_and_save_trajectory(
     writer.release()
     renderer.close()
     print(f"Saved video to {save_path}")
-
-
-
-import copy
 
 def visualize_trajectory_with_reference(
     mj_model: mujoco.MjModel,
