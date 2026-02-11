@@ -1,12 +1,8 @@
-# defaults:
-#   - mj_scene: box.yaml
-#   - _self_
-
 _target_: sbto.sim.sim_mj_rollout.SimMjRollout
 cfg:
   _target_: sbto.sim.sim_mj_rollout.ConfigMjRollout
-  T: 500
-  Nknots: 20
+  T: 500  # will be overridden by the reference time
+  step_knots: 25
   interp_kind: "pchip"
   Nthread: -1
   _chunk_size: 2

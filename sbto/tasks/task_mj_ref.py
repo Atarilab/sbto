@@ -43,15 +43,13 @@ class TaskMjRef(TaskMj):
 
         # Update simulator (T, Nknots) parameters:
         # (The reference may be longer than sim.T)
-        T_steps_ref = self.ref.T-1
-        t_steps_knots = int(sim.T / sim.Nknots)
-        Nknots = (T_steps_ref // t_steps_knots) + 1
+        T_steps_ref = self.ref.T - 1
         super(SimMjRollout, sim).__init__(
             sim.mj_scene.Nq,
             sim.mj_scene.Nv,
             sim.mj_scene.Nu,
             T_steps_ref,
-            Nknots,
+            sim.step_knots,
             sim.cfg.interp_kind,
             sim.scaling,
         )
