@@ -212,15 +212,14 @@ class ReferenceMotion:
             "obj_v",
             "obj_w",
         ]
-        for k in keys_qpos + keys_qvel:
+        for k in keys_qpos :
             v = qpos_dict.get(k, None)
             if v is not None:
                 all.append(v)
-            else:
-                v = vel_dict.get(k, None)
-                if v is not None:
-                    all.append(v)
-
+        for k in keys_qvel:
+            v = vel_dict.get(k, None)
+            if v is not None:
+                all.append(v)
         return np.hstack(all)
 
     def compute_sensor_data(self, sensor_names: List[str]):
