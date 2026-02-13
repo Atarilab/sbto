@@ -5,7 +5,7 @@ cfg:
   N_it: 100
   elite_frac: 0.05
   keep_frac: 0.05
-  min_std_collapsed: 1e-4
+  min_std_collapsed: 5e-4
   alpha_mean: 0.95
   alpha_cov: 0.3
   std_incr: 0.

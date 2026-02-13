@@ -85,7 +85,6 @@ class SimMjRollout(SimRolloutBase):
         # preallocate results
         self.mj_models = []
         self.mj_datas = []
-        self.initial_states : Array = None
         self.x_rollout : Array = None
         self.x_rollout_full : Array = None
         self.sensordata_rollout : Array = None
@@ -93,13 +92,13 @@ class SimMjRollout(SimRolloutBase):
         self.initial_warmstart : Array = None
         self.t0 = 0.
         self.steps_to_skip = 0
-        self.best_id = 0
         self.N_allocated = -1
         self.last_T = -1
         self.nstep_allocated = -1
         # mujoco rollout variables
         self._chunk_size = cfg._chunk_size
         self._persistent_pool = True
+        self._pending_steps_to_skip = 0
 
     @property
     def duration(self):
@@ -148,16 +147,14 @@ class SimMjRollout(SimRolloutBase):
         if N != self.N_allocated:
             self.mj_models = [self.mj_scene.mj_model] * N
             # [N, Nx+1], include time as the first state
-            self.initial_states = np.empty((N, self.Nx+1))
-            x_0 = np.concatenate(([self.t0], self.x_0))[None, :]
             # [N, T+1, Nx+1]
             self.x_rollout_full = np.empty((N, self.T+1, self.Nx+1))
             # Set x_0
+            x_0 = np.concatenate(([self.t0], self.x_0))[None, :]
             self.x_rollout_full[:, 0, :] = x_0
             # [N, T, Nobs]
             self.sensordata_rollout_full = np.empty((N, self.T, self.mj_scene.Nobs))
 
-        self.initial_states[:] = self.x_rollout_full[self.best_id, None, self.steps_to_skip, :]
         # [N, T_eff, Nx+1]
         self.x_rollout = np.empty((N, nstep, self.Nx+1))
         # [N, T_eff, Nobs]
@@ -166,19 +163,28 @@ class SimMjRollout(SimRolloutBase):
         self.N_allocated = N
         self.nstep_allocated = nstep
 
-    def skip_first_rollout_steps(self, knots_to_skip, best_id):
+    def skip_first_rollout_steps(self, knots_to_skip):
         """
-        Skip the first rollout steps by taking the state and sensor data
-        from the <best_id> rollout (using data from the last iteration).
+        Skip the first rollout steps by taking the state and sensor data.
         """
-        t_knot = self.t_knots[knots_to_skip]
+        # Even though the first sampled knots are the same,
+        # the interpolated controls between those knots might be
+        # different as the later knots have different values.
+        match self.interp_kind:
+            case "pchip":
+                offset_skip = 2
+            case "linear":
+                offset_skip = 0
+            case _:
+                offset_skip = 2
+        knots_to_skip -= offset_skip
 
-        if best_id != self.best_id or t_knot != self.steps_to_skip:
-            self.x_rollout_full[:, 1:self.steps_to_skip+1, :] = self.x_rollout_full[best_id, None, 1:self.steps_to_skip+1, :]
-            self.sensordata_rollout_full[:, 1:self.steps_to_skip, :] = self.sensordata_rollout_full[best_id, None, 1:self.steps_to_skip, :]
-        
-        self.steps_to_skip = t_knot
-        self.best_id = best_id
+        if knots_to_skip > 0:
+            # Do not immediately skip the rollout.
+            # This ensures x_rollout_full[:, :t_knots[knots_to_skip], :]
+            # is initialized with the right data before skipping it
+            self.steps_to_skip = self.t_knots[knots_to_skip]
+            self._pending_steps_to_skip = self.t_knots[knots_to_skip]
 
     def _rollout_dynamics(self, u_traj: Array, with_x0) -> Tuple[Array, Array, Array]:
         """
@@ -193,20 +199,22 @@ class SimMjRollout(SimRolloutBase):
             self.nstep_allocated != nstep or
             self.last_T != T
             ):
-            # Ensure full horizon rollout when incrementing
-            if T != self.last_T:
+            # Full horizon rollout when incrementing
+            # to ensure consistency of the state rollouts
+            # (due to numerical instabilities)
+            if T != self.last_T and self.steps_to_skip > 0:
                 self.steps_to_skip = 0
-                self.last_T = T
                 nstep = T
             self._allocate_data_arrays(N, nstep)
 
-        
+        self.last_T = T
+
         rollout.rollout(self.mj_models,
                         self.mj_datas,
-                        self.initial_states,
+                        self.x_rollout_full[:, self.steps_to_skip, :],
                         control=u_traj[:, self.steps_to_skip:, :],
                         nstep=nstep,
-                        initial_warmstart=self.initial_warmstart,
+                        initial_warmstart=None,
                         state=self.x_rollout,
                         sensordata=self.sensordata_rollout,
                         skip_checks=True,
@@ -216,8 +224,8 @@ class SimMjRollout(SimRolloutBase):
 
         self.x_rollout_full[:, self.steps_to_skip+1:T+1, :] = self.x_rollout
         self.sensordata_rollout_full[:, self.steps_to_skip:T, :] = self.sensordata_rollout
-        
-        # Need to call skip_first_rollout_steps before each rollout
+
+        # skip_first_rollout_steps needs to be called before each rollout
         self.steps_to_skip = 0
         first_timestep = 0 if with_x0 else 1
 

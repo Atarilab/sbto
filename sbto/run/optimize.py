@@ -172,6 +172,7 @@ def optimize_incremental_opt(
             opt_stats.add_iteration(N_knots_to_opt, t_end)
             # Reset best knots when all knots are optimized
             if reset_best_knots_all and all_knots_optimized:
+                solver.state.min_cost = np.inf
                 solver.state.min_cost_all = np.inf
                 reset_best_knots_all = False
 
@@ -181,12 +182,11 @@ def optimize_incremental_opt(
 
             ### Skip rollout steps
             # If all first dims corresponding to the first <k> knots
-            # have collapsed, skip the rollouts and take trajectories
-            # from the last rollout[<best_id>]
+            # have collapsed, skip the rollouts and take last trajectories
             first_dim_non_collapsed = np.argmax(~solver.collapsed_dim)
             n_knots_collapsed = first_dim_non_collapsed // sim.Nu
             if n_knots_collapsed > 0:
-                sim.skip_first_rollout_steps(n_knots_collapsed, solver.state.best_id)
+                sim.skip_first_rollout_steps(n_knots_collapsed)
 
             costs = compute_cost_t_end(samples, sim, task, t_end=t_end)
             all_costs.append(costs)

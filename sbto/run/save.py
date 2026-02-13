@@ -276,6 +276,10 @@ def save_results(
         t, x_traj, qdes_traj, obs_traj = map(np.squeeze, sim.rollout_multiple_shooting(top_samples, x_shooting, with_x0=True))
     else:
         t, x_traj, qdes_traj, obs_traj = map(np.squeeze, sim.rollout(top_samples, with_x0=True))
+    
+    # Sanity check
+    # cost = task.cost(x_traj[None, 1:, :], top_samples, obs_traj[None, :, :])
+    # print(f"[{description or 'Unnamed'}] Best cost: {np.min(cost)}")
 
     print(f"[{description or 'Unnamed'}] Best cost: {solver_state_final.min_cost_all}")
 

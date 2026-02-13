@@ -46,13 +46,13 @@ class CEM(SamplingBasedSolver):
         """
         diag = np.diag(self.state.cov)
         self.collapsed_dim = diag < self.cfg.min_std_collapsed  # boolean mask
-        # dim_to_sample = ~self.collapsed_dim
-        # dim_to_sample[self.n_dim:] = False
+        self.dim_to_sample = ~self.collapsed_dim
+        self.dim_to_sample[self.n_dim:] = False
 
         N = 0 if self.first_it else self.N_keep
-        self.samples[N:, :self.n_dim] = self.sampler.sample(
-            mean=self.state.mean[:self.n_dim],
-            cov=self.state.cov[:self.n_dim, :self.n_dim],
+        self.samples[N:, self.dim_to_sample] = self.sampler.sample(
+            mean=self.state.mean[self.dim_to_sample],
+            cov=self.state.cov[self.dim_to_sample, :][:, self.dim_to_sample],
         )[N:]
 
         if np.any(self.collapsed_dim):

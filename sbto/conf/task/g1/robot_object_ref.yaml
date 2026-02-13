@@ -17,12 +17,12 @@ cfg:
   joint_pos_weight: 0.25
   joint_vel_weight: 0.01
   base_pos_weight: 5.0
-  base_quat_weight: 1.
+  base_quat_weight: .1
 
   # --- Torso pose/vel ---
   torso_pos_weight: 30.0
-  torso_quat_weight: 3.
-  torso_quat_weight_terminal: 3.
+  torso_quat_weight: 0.5
+  torso_quat_weight_terminal: 0.5
   torso_linvel_weight: 0.3
   torso_angvel_weight: 0.1
 
@@ -42,10 +42,10 @@ cfg:
   # --- Obj pose cost ---
   obj_pos_weight: 40.
   obj_pos_weight_terminal: 40.
-  obj_quat_weight: 4.
-  obj_quat_weight_terminal: 4.
+  obj_quat_weight: 0.5
+  obj_quat_weight_terminal: 0.5
   obj_v_weight: 0.2
-  obj_w_weight: 0.
+  obj_w_weight: 0.1
 
   # --- Obj/hands Contact cost ---
   contact_obj_weight: 2.0
