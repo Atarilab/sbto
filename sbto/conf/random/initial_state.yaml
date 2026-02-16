@@ -4,8 +4,8 @@ defaults:
 
 cfg:
   rand_t_knots: 0
-  scale_q: 0.04
-  scale_v: 0.05
+  scale_q: 0.05
+  scale_v: 0.025
 
   obj_x_range: [0., 0.]
   obj_y_range: [0., 0.]
