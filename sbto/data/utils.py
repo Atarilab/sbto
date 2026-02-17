@@ -3,6 +3,11 @@ import numpy as np
 from datetime import datetime
 import yaml
 import glob
+from omegaconf import OmegaConf
+from sbto.data.filenames import (
+    CONFIG_FILENAME,
+    BEST_TRAJECTORY_FILENAME
+)
 
 EXP_DIR = "./datasets"
 TRAJ_FILENAME = "time_x_u_traj"
@@ -10,7 +15,6 @@ ROLLOUT_FILENAME = "rollout_time_x_u_obs_traj"
 SOLVER_STATES_DIR = "./solver_states"
 ALL_SAMPLES_COSTS_FILENAME = "samples_costs"
 OPT_STATS_FILENAME = "optimization_stats"
-CONFIG_NAME = "config"
 
 def get_filename_from_path(path: str):
     _, filename = os.path.split(path)
@@ -26,7 +30,7 @@ def load_yaml(yaml_path):
 
 def get_config_path_from_rundir(run_dir: str):
     all_cfg_path = glob.glob(
-        f"{run_dir}/**/{CONFIG_NAME}.yaml",
+        f"{run_dir}/**/{CONFIG_FILENAME}.yaml",
         include_hidden=True,
         recursive=True
         )
@@ -42,6 +46,13 @@ def get_config_dict_from_rundir(run_dir: str):
     else:
         return {}
 
+def get_config_from_rundir(run_dir: str):
+    cfg_dict = get_config_dict_from_rundir(run_dir)
+    if cfg_dict:
+        return OmegaConf.create(cfg_dict)
+    else:
+        return None
+    
 def get_opt_stats_path_from_rundir(run_dir: str):
     FILE_NAME = "optimization_stats"
     all_paths = glob.glob(
@@ -64,79 +75,29 @@ def get_xml_path_from_rundir(run_dir: str):
         return all_xml_paths[0]
     else:
         return ""
-    
-def get_date_time() -> str:
-    now = datetime.now()
-    return now.strftime('%Y_%m_%d__%H_%M_%S')
 
-def create_dirs(exp_name: str, description: str = "") -> str:
-    date = get_date_time()
-    run_name = date if description == "" else f"{date}__{description}"
-    exp_result_dir = os.path.join(EXP_DIR, exp_name, run_name)
-    
-    if os.path.exists(exp_result_dir):
-        Warning(f"Directory {exp_result_dir} already exists.")
-    else:
-        os.makedirs(exp_result_dir)
-    return exp_result_dir
+def reconstruct_x_traj(data_dict):
+    """
+    Reconstruct original trajectory dictionary from split keys.
+    """
 
-def save_trajectories(
-    dir_path: str,
-    time,
-    x_traj,
-    u_traj
-    ) -> None:
+    required_keys = [
+        "base_xyz_quat",
+        "actuator_pos",
+        "obj_0_xyz_quat",
+        "base_linvel_angvel",
+        "actuator_vel",
+        "obj_0_linvel_angvel",
+    ]
+    x_traj = []
+    for k in required_keys:
+        if k in data_dict:
+            x_traj.append(data_dict[k])
+    return np.hstack(x_traj)
 
-    np.savez(
-        os.path.join(dir_path, f"{TRAJ_FILENAME}.npz"),
-        time=time,
-        x=x_traj,
-        u=u_traj
-    )
-
-def save_rollout(
-    dir_path: str,
-    time,
-    x_traj,
-    u_traj,
-    obs_traj,
-    costs = []
-    ) -> None:
-    np.savez(
-        os.path.join(dir_path, f"{ROLLOUT_FILENAME}.npz"),
-        time=time,
-        x=x_traj,
-        u=u_traj,
-        o=obs_traj,
-        c=costs
-    )
-
-def save_all_samples_and_cost(
-    dir_path: str,
-    samples,
-    costs,
-    ) -> None:
-    np.savez(
-        os.path.join(dir_path, f"{ALL_SAMPLES_COSTS_FILENAME}.npz"),
-        samples=samples,
-        costs=costs,
-    )
-
-def save_all_states(
-    dir_path: str,
-    states
-    ) -> None:
-    # Save all solver states
-    solver_state_dir = os.path.join(dir_path, SOLVER_STATES_DIR)
-    for i, state in enumerate(states):
-        state.set_filename(f"solver_state_{i}.npz")
-        state.save(solver_state_dir)
-
-def load_trajectories(
-    dir_path: str,
-    ):
-    file_path = os.path.join(dir_path, f"{TRAJ_FILENAME}.npz")
-    if not os.path.exists(file_path):
-        raise FileNotFoundError(f"{file_path} does not exist.")
-    data = np.load(file_path)
-    return data["time"], data["x"], data["u"]
+def load_best_trajectory_from_rundir(rundir: str):
+    data_path = os.path.join(rundir, f"{BEST_TRAJECTORY_FILENAME}.npz")
+    data = dict(np.load(data_path))
+    x_traj = reconstruct_x_traj(data)
+    data["x"] = x_traj
+    return data

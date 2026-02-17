@@ -3,7 +3,7 @@ import glob
 import numpy as np
 from typing import List
 
-from sbto.data.utils import ALL_SAMPLES_COSTS_FILENAME, ROLLOUT_FILENAME, save_rollout
+from sbto.data.filenames import ALL_SAMPLES_COSTS_FILENAME, ROLLOUT_FILENAME
 
 def get_all_costs_and_samples_paths(data_dir: str) -> List[str]:
     all_costs_samples_paths = []

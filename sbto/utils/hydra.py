@@ -13,7 +13,7 @@ from sbto.tasks.task_base import OCPBase
 from sbto.tasks.task_mj_ref import TaskMjRef
 from sbto.solvers.solver_base import SamplingBasedSolver, SolverState
 from sbto.run.optimize import optimize_single_shooting, optimize_mutiple_shooting, optimize_incremental_opt
-from sbto.run.save import save_results, get_final_state_from_rundir
+from sbto.data.save import save_results, get_final_state_from_rundir
 from sbto.run.stats import OptimizationStats
 
 def optimize_and_save_data(

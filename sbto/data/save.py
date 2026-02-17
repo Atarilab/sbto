@@ -1,9 +1,7 @@
 import os
 import numpy as np
 from datetime import datetime
-import os
 import shutil
-import numpy as np
 import numpy.typing as npt
 from dataclasses import asdict
 from typing import List
@@ -11,7 +9,6 @@ import copy
 import mujoco
 
 from sbto.tasks.task_mj import TaskMj
-from sbto.sim.sim_base import SimRolloutBase
 from sbto.sim.sim_mj_rollout import SimMjRollout
 from sbto.tasks.task_base import OCPBase
 from sbto.solvers.solver_base import SolverState, SamplingBasedSolver
@@ -19,22 +16,22 @@ from sbto.utils.plotting import plot_contact_plan, plot_costs, plot_mean_cov, pl
 from sbto.utils.viewer import render_and_save_trajectory
 from sbto.data.postprocess import split_x_traj
 from sbto.data.aggregate import get_top_samples
+from sbto.data.filenames import (
+    DATA_DIR,
+    ALL_SAMPLES_COSTS_FILENAME,
+    ROLLOUT_FILENAME,
+    BEST_TRAJECTORY_FILENAME,
+    TRAJ_FILENAME,
+    SOLVER_STATE_NAME,
+    BEST_SAMPLES_IT_FILENAME,
+    INITIAL_SOLVER_STATE_SUFFIX,
+    FINAL_SOLVER_STATE_SUFFIX,
+    HYDRA_CFG,
+    MJ_MODEL_NAME,
+    TOP_TRAJECTORIES_FILENAME,
+)
 
 Array = npt.NDArray[np.float64]
-
-DATA_DIR = "./datasets"
-TRAJ_FILENAME = "time_x_u_traj"
-ROLLOUT_FILENAME = "rollout_time_x_u_obs_traj"
-SOLVER_STATES_DIR = "./solver_states"
-ALL_SAMPLES_COSTS_FILENAME = "samples_costs"
-BEST_SAMPLES_IT_FILENAME = "best_samples_it"
-SOLVER_STATE_NAME = "solver_state"
-INITIAL_SOLVER_STATE_SUFFIX = "0"
-FINAL_SOLVER_STATE_SUFFIX = "final"
-HYDRA_CFG = ".hydra"
-MJ_MODEL_NAME = "mj_model"
-BEST_TRAJECTORY_FILENAME = "best_trajectory"
-TOP_TRAJECTORIES_FILENAME = "top_trajectories"
 
 def get_date_time() -> str:
     now = datetime.now()
@@ -245,7 +242,7 @@ def save_results(
         if n_last_it > 0:
             print(f"Saving all samples and costs from last {n_last_it} iteration.")
         else:
-            print(f"Saving all samples and costs.")
+            print("Saving all samples and costs.")
         save_all_samples_and_cost(result_dir, all_samples, last_costs)
 
     if save_best_samples_it:

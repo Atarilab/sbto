@@ -4,9 +4,6 @@ import numpy as np
 import numpy.typing as npt
 import os
 
-from sbto.tasks.task_mj import TaskMj
-from sbto.utils.viewer import render_and_save_trajectory
-
 Array = npt.NDArray[np.float64]
 
 def plot_state_control(

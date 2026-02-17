@@ -5,6 +5,7 @@ import shutil
 import glob
 
 from sbto.data.utils import get_config_dict_from_rundir, get_filename_from_path
+from sbto.data.filenames import BEST_TRAJECTORY_FILENAME, BEST_TRAJECTORY_RAND_FILENAME
 
 def group_run_dir_by_ref_file_name(task_dir: str):
     """
@@ -28,13 +29,12 @@ def group_run_dir_by_ref_file_name(task_dir: str):
             os.makedirs(run_dir_dst, exist_ok=True)
             shutil.move(run_dir, run_dir_dst)
 
-def group_traj_data_by_ref(task_dir: str):
+def group_traj_data_by_ref_in_single_file(task_dir: str):
     run_dir_by_ref = defaultdict(list)
-    TRAJ_DATA_FILENAME = "best_trajectory.npz"
-    RAND_DATA_FILENAME = "best_trajectory_rand.npz"
+
 
     all_traj_data_paths = glob.glob(
-        f"{task_dir}/**/{TRAJ_DATA_FILENAME}",
+        f"{task_dir}/**/{BEST_TRAJECTORY_FILENAME}.npz",
         recursive=True
     )
 
@@ -58,7 +58,7 @@ def group_traj_data_by_ref(task_dir: str):
 
         all_data = defaultdict(list)
         for i, path in enumerate(paths):
-            data_path = os.path.join(path, TRAJ_DATA_FILENAME)
+            data_path = os.path.join(path, f"{BEST_TRAJECTORY_FILENAME}.npz")
             data = np.load(data_path, mmap_mode="r")
             for k, v in data.items():
                 all_data[k].append(np.squeeze(v))
@@ -70,7 +70,7 @@ def group_traj_data_by_ref(task_dir: str):
 
         run_dir_dst = os.path.join(task_dir, ref_motion_name)
         os.makedirs(run_dir_dst, exist_ok=True)
-        rand_data_path = os.path.join(run_dir_dst, RAND_DATA_FILENAME)
+        rand_data_path = os.path.join(run_dir_dst, f"{BEST_TRAJECTORY_RAND_FILENAME}.npz")
         
         print(ref_motion_name, i+1)
         del all_data["t_knots"]
