@@ -4,7 +4,7 @@ import mujoco
 from sbto.main import instantiate_from_cfg
 from sbto.data.utils import get_config_from_rundir, load_best_trajectory_from_rundir
 from sbto.utils.viewer import visualize_trajectory_with_reference, visualize_trajectory
-
+from sbto.data.constants import *
 
 def main(rundir: str, with_ref: bool = True):
 
@@ -17,11 +17,11 @@ def main(rundir: str, with_ref: bool = True):
 
     if with_ref:
         visualize_trajectory_with_reference(
-            mj_model, mj_data, task.ref.time, data["x"], task.ref.x
+            mj_model, mj_data, task.ref.time, data[KEY_FULL_STATE], task.ref.x
         )
     else:
         visualize_trajectory(
-            mj_model, mj_data, data["time"], data["x"]
+            mj_model, mj_data, data[KEY_TIME], data[KEY_FULL_STATE]
         )
 
 
