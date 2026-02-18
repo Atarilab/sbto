@@ -1,5 +1,6 @@
 import argparse
 import shutil
+import numpy as np
 from sbto.evaluation.load import load_dataset_with_errors as load
 
 def main(
@@ -16,13 +17,18 @@ def main(
 
     print("=== Success Counts ===")
     n_success = data["success"].sum()
-    print(f"{n_success / len(data) * 100.}%")
+    print(f" {n_success / len(data) * 100.}%")
 
     print("=== Smoothness ===")
     smoothness = data[data["success"]]["act_acc_ratio"].values.mean()
     print(f" {smoothness}")
 
-
+    print("=== Compute ===")
+    T = data[data["success"]]["T"].values
+    sim_steps = data[data["success"]]["total_sim_timesteps"].values
+    avg_compute_per_timestep_success = np.mean(sim_steps / T)
+    print(f" {avg_compute_per_timestep_success}")
+    
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Evaluate SBTO dataset statistics."
