@@ -3,15 +3,17 @@ from typing import Tuple, Union, Callable, TypeAlias, List, Optional
 import numpy as np
 import numpy.typing as npt
 from typing import TypeAlias
-from enum import Enum
-from functools import wraps, partial
+from enum import IntEnum
+from functools import wraps
+from collections import defaultdict
 
+from .cost import get_cost_fn_idx, compute_total_cost
 
 Array = npt.NDArray[np.float64]
 IntArray = npt.NDArray[np.int64]
 CostFn: TypeAlias = Callable[[Tuple[Array, Array, Array]], float]
 
-class VarType(Enum):
+class VarType(IntEnum):
     STATE = 0
     CONTROL = 1
     OBS = 2
@@ -23,7 +25,7 @@ class OCPBase(ABC):
 
         # cost functions
         self._costs_names: List[str] = []
-        self._costs_fn: List[CostFn] = []
+        self._cost_terms: dict = defaultdict(list)
 
     def _check_cost_fn(self, f: CostFn, ref_values: Array, weights: Array) -> None:
         if not callable(f):
@@ -121,15 +123,16 @@ class OCPBase(ABC):
                 ref_values: Union[Array, float],
                 weights: Union[Array, float],
                 ) -> None:
-        
-        extractor = partial(self._extract_var, idx=idx)
-        mapping = {
-            VarType.STATE: lambda x, u, o: f(extractor(x), ref_values, weights),
-            VarType.CONTROL: lambda x, u, o: f(extractor(u), ref_values, weights),
-            VarType.OBS: lambda x, u, o: f(extractor(o), ref_values, weights),
-        }
-        self._costs_fn.append(mapping[type])
-        self._costs_names.append(name)
+        f_idx = get_cost_fn_idx(f)
+        if f_idx is None:
+            print(f"Cannot find cost function {f} for cost {name}")
+        else:
+            self._cost_terms["var_type"].append(int(type))
+            self._cost_terms["f_idx"].append(int(f_idx))
+            self._cost_terms["idx"].append(np.int32(idx))
+            self._cost_terms["ref"].append(np.ascontiguousarray(ref_values))
+            self._cost_terms["w"].append(np.ascontiguousarray(weights))
+            self._costs_names.append(name)
 
     def _add_cost_and_terminal_cost(
         self,
@@ -223,11 +226,20 @@ class OCPBase(ABC):
     ) -> None:
         """Add an observation cost with optional terminal component."""
 
-    def cost(self, x_traj : Array, u_traj : Array, obs_traj : Array) -> float:
+    def cost(self, x_traj : Array, u_traj : Array, obs_traj : Array) -> Array:
         """
         Compute cost based on:
         - state trajectories [-1, T, Nu]
         - control trajectories [-1, T, Nu]
         - observations trajectories [-1, T, Nobs]
         """
-        return sum(cost_fn(x_traj, u_traj, obs_traj) for cost_fn in self._costs_fn)
+        return compute_total_cost(
+            x_traj,
+            u_traj,
+            obs_traj,
+            self._cost_terms["var_type"],
+            self._cost_terms["f_idx"],
+            self._cost_terms["idx"],
+            self._cost_terms["ref"],
+            self._cost_terms["w"],
+        )

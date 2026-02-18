@@ -179,7 +179,6 @@ def optimize_incremental_opt(
             samples = solver.get_samples()
             if all_knots_optimized:
                 all_samples.append(samples.copy())
-
             costs = compute_cost_t_end(samples, sim, task, t_end=t_end)
             all_costs.append(costs)
             best_samples_it.append(solver.state.best.copy())

@@ -111,3 +111,49 @@ def hamming_dist_nb(cnt_rollout, cnt_plan, weights):
                 total += weights[t, c] * diff
         result[n] = total
     return result
+
+COST_FUNS = [quadratic_cost_nb, quaternion_dist_logmap_nb, hamming_dist_nb]
+
+def get_cost_fn_idx(f):
+    if f in COST_FUNS:
+        return COST_FUNS.index(f)
+    else:
+        return None
+
+@njit(parallel=True, fastmath=True, cache=True)
+def compute_total_cost(
+    x_traj,
+    u_traj,
+    obs_traj, 
+    var_types,
+    f_ids,
+    idxs,
+    refs,
+    weights
+    ):
+
+    B = x_traj.shape[0]
+    N_terms = len(var_types)
+    total = np.zeros(B)
+    for t in prange(N_terms):
+        var_type = var_types[t]
+        idx = idxs[t]
+        ref = refs[t]
+        w = weights[t]
+
+        if var_type == 0:
+            var = x_traj
+        elif var_type == 1:
+            var = u_traj
+        else:
+            var = obs_traj
+
+        # dispatch function by integer
+        if f_ids[t] == 0:
+            total += quadratic_cost_nb(var[..., idx], ref, w)
+        elif f_ids[t] == 1:
+            total += quaternion_dist_logmap_nb(var[..., idx], ref, w)
+        elif f_ids[t] == 2:
+            total += hamming_dist_nb(var[..., idx], ref, w)
+
+    return total
