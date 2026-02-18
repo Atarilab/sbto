@@ -4,17 +4,31 @@ from datetime import datetime
 import yaml
 import glob
 from omegaconf import OmegaConf
+
+from sbto.run.stats import PERF_FILENAME
 from sbto.data.filenames import (
     CONFIG_FILENAME,
-    BEST_TRAJECTORY_FILENAME
+    BEST_TRAJECTORY_FILENAME,
+    DATA_DIR,
+    SOLVER_STATE_NAME
 )
 
-EXP_DIR = "./datasets"
-TRAJ_FILENAME = "time_x_u_traj"
-ROLLOUT_FILENAME = "rollout_time_x_u_obs_traj"
-SOLVER_STATES_DIR = "./solver_states"
-ALL_SAMPLES_COSTS_FILENAME = "samples_costs"
-OPT_STATS_FILENAME = "optimization_stats"
+def get_date_time() -> str:
+    now = datetime.now()
+    return now.strftime('%Y_%m_%d__%H_%M_%S')
+
+def create_dirs(exp_name: str, data_dir: str = "", description: str = "") -> str:
+    date = get_date_time()
+    run_name = date if description == "" else f"{date}__{description}"
+    if data_dir == "":
+        data_dir = DATA_DIR
+    exp_result_dir = os.path.join(data_dir, exp_name, run_name)
+    
+    if os.path.exists(exp_result_dir):
+        Warning(f"Directory {exp_result_dir} already exists.")
+    else:
+        os.makedirs(exp_result_dir)
+    return exp_result_dir
 
 def get_filename_from_path(path: str):
     _, filename = os.path.split(path)
@@ -53,10 +67,19 @@ def get_config_from_rundir(run_dir: str):
     else:
         return None
     
+def get_arg_from_cfg_dict(cfg_dict: dict, key: str):
+    for k, v in cfg_dict.items():
+        if k == key:
+            return v
+        elif isinstance(v, dict):
+            result = get_arg_from_cfg_dict(v, key)
+            if result is not None:
+                return result
+    return None
+             
 def get_opt_stats_path_from_rundir(run_dir: str):
-    FILE_NAME = "optimization_stats"
     all_paths = glob.glob(
-        f"{run_dir}/**__ws_incr/{FILE_NAME}.yaml",
+        f"{run_dir}/**/{PERF_FILENAME}.yaml",
         include_hidden=True,
         recursive=True
         )
@@ -76,6 +99,20 @@ def get_xml_path_from_rundir(run_dir: str):
     else:
         return ""
 
+def get_all_best_traj_data(task_dir: str):
+    all_traj_data_paths = glob.glob(
+        f"{task_dir}/**/{BEST_TRAJECTORY_FILENAME}.npz",
+        recursive=True
+    )
+    return all_traj_data_paths
+
+def solver_state_path_from_rundir(rundir: str, suffix: str = "") -> str:    
+    if suffix:
+        filename = f"{SOLVER_STATE_NAME}_{suffix}.npz"
+    else:
+        filename = f"{SOLVER_STATE_NAME}.npz"
+    return os.path.join(rundir, filename)
+
 def reconstruct_x_traj(data_dict):
     """
     Reconstruct original trajectory dictionary from split keys.
@@ -92,12 +129,14 @@ def reconstruct_x_traj(data_dict):
     x_traj = []
     for k in required_keys:
         if k in data_dict:
+            print(data_dict[k].shape)
             x_traj.append(data_dict[k])
-    return np.hstack(x_traj)
+    return np.concatenate(x_traj, axis=-1)
 
-def load_best_trajectory_from_rundir(rundir: str):
+def load_best_trajectory_from_rundir(rundir: str, with_full_state: bool = True):
     data_path = os.path.join(rundir, f"{BEST_TRAJECTORY_FILENAME}.npz")
     data = dict(np.load(data_path))
-    x_traj = reconstruct_x_traj(data)
-    data["x"] = x_traj
+    if with_full_state:
+        x_traj = reconstruct_x_traj(data)
+        data["x"] = x_traj
     return data

@@ -1,28 +1,23 @@
 import os
 import numpy as np
-from datetime import datetime
 import shutil
 import numpy.typing as npt
 from dataclasses import asdict
 from typing import List
-import copy
 import mujoco
 
 from sbto.tasks.task_mj import TaskMj
 from sbto.sim.sim_mj_rollout import SimMjRollout
 from sbto.tasks.task_base import OCPBase
-from sbto.solvers.solver_base import SolverState, SamplingBasedSolver
+from sbto.solvers.solver_base import SolverState
 from sbto.utils.plotting import plot_contact_plan, plot_costs, plot_mean_cov, plot_state_control
 from sbto.utils.viewer import render_and_save_trajectory
+from sbto.data.utils import solver_state_path_from_rundir, create_dirs
 from sbto.data.postprocess import split_x_traj
 from sbto.data.aggregate import get_top_samples
 from sbto.data.filenames import (
-    DATA_DIR,
     ALL_SAMPLES_COSTS_FILENAME,
-    ROLLOUT_FILENAME,
     BEST_TRAJECTORY_FILENAME,
-    TRAJ_FILENAME,
-    SOLVER_STATE_NAME,
     BEST_SAMPLES_IT_FILENAME,
     INITIAL_SOLVER_STATE_SUFFIX,
     FINAL_SOLVER_STATE_SUFFIX,
@@ -32,54 +27,6 @@ from sbto.data.filenames import (
 )
 
 Array = npt.NDArray[np.float64]
-
-def get_date_time() -> str:
-    now = datetime.now()
-    return now.strftime('%Y_%m_%d__%H_%M_%S')
-
-def create_dirs(exp_name: str, data_dir: str = "", description: str = "") -> str:
-    date = get_date_time()
-    run_name = date if description == "" else f"{date}__{description}"
-    if data_dir == "":
-        data_dir = DATA_DIR
-    exp_result_dir = os.path.join(data_dir, exp_name, run_name)
-    
-    if os.path.exists(exp_result_dir):
-        Warning(f"Directory {exp_result_dir} already exists.")
-    else:
-        os.makedirs(exp_result_dir)
-    return exp_result_dir
-
-def save_trajectories(
-    dir_path: str,
-    time,
-    x_traj,
-    u_traj
-    ) -> None:
-
-    np.savez_compressed(
-        os.path.join(dir_path, f"{TRAJ_FILENAME}.npz"),
-        time=time,
-        x=x_traj,
-        u=u_traj
-    )
-
-def save_rollout(
-    dir_path: str,
-    time,
-    x_traj,
-    u_traj,
-    obs_traj,
-    costs = []
-    ) -> None:
-    np.savez_compressed(
-        os.path.join(dir_path, f"{ROLLOUT_FILENAME}.npz"),
-        time=time,
-        x=x_traj,
-        u=u_traj,
-        o=obs_traj,
-        c=costs
-    )
 
 def save_all_samples_and_cost(
     dir_path: str,
@@ -92,45 +39,13 @@ def save_all_samples_and_cost(
         costs=costs,
     )
 
-def get_solver_state_path(dir_path: str, suffix: str) -> SolverState:
-    ext = "npz"
-    filename = f"{SOLVER_STATE_NAME}.{ext}"
-
-    if suffix:
-        filename = filename.replace(f".{ext}", f"_{suffix}.{ext}")
-    return filename
-
-
-def save_all_states(
-    dir_path: str,
-    states: List[SolverState]
-    ) -> None:
-    for i, state in enumerate(states):
-        save_solver_state(dir_path, state, str(i))
-
 def save_solver_state(
     dir_path: str,
     state: SolverState,
     suffix: str = ""
     ) -> None:
-    filename = get_solver_state_path(dir_path, suffix)
-    solver_state_file = os.path.join(dir_path, filename)
-    np.savez(solver_state_file, **asdict(state))
-
-def _get_state_from_rundir(dir_path: str, solver: SamplingBasedSolver, suffix: str) -> SolverState:
-    filename = get_solver_state_path(dir_path, suffix)
-    solver_state_file = os.path.join(dir_path, filename)
-    solver_state_0 = copy.deepcopy(solver.state)
-    data = np.load(solver_state_file)
-    for k, v in data.items():
-        setattr(solver_state_0, k, v)
-    return solver_state_0
-
-def get_initial_state_from_rundir(dir_path: str, solver: SamplingBasedSolver) -> SolverState:
-    return _get_state_from_rundir(dir_path, solver, INITIAL_SOLVER_STATE_SUFFIX)
-
-def get_final_state_from_rundir(dir_path: str, solver: SamplingBasedSolver) -> SolverState:
-    return _get_state_from_rundir(dir_path, solver, FINAL_SOLVER_STATE_SUFFIX)
+    solver_state_path = solver_state_path_from_rundir(dir_path, suffix)
+    np.savez(solver_state_path, **asdict(state))
 
 def save_plots(
     dir_path: str,
@@ -245,6 +160,7 @@ def save_results(
             print("Saving all samples and costs.")
         save_all_samples_and_cost(result_dir, all_samples, last_costs)
 
+    # Save best samples per iterations
     if save_best_samples_it:
         data = {str(i) : sample for i, sample in enumerate(best_samples_it)}
         data["c"] = np.min(all_costs, axis=0)
