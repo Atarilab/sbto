@@ -14,6 +14,7 @@ from sbto.utils.extract_ref import ReferenceMotion
 from sbto.evaluation.errors import *
 from sbto.evaluation.opt_stats import *
 from sbto.evaluation.diversity import *
+from sbto.data.constants import *
 from sbto.evaluation.success_rate import compute_success
 
 CONFIG_FILENAME = "config.yaml"
@@ -84,11 +85,11 @@ def load_opt_stats_from_rundir(rundir: str, N_samples) -> dict:
 
 def get_ref_data(ref: ReferenceMotion):
     return {
-        "object_pos": ref.object_pos,
-        "root_pos": ref.root_pos,
-        "object_rot": ref.object_rot,
-        "root_rot": ref.root_rot,
-        "dof_pos": ref.dof_pos,
+        KEY_OBJECT_POS: ref.object_pos,
+        KEY_ROOT_POS: ref.root_pos,
+        KEY_OBJECT_ROT: ref.object_rot,
+        KEY_ROOT_ROT: ref.root_rot,
+        KEY_DOF_POS: ref.dof_pos,
         "dt": ref.dt,
     }
 
@@ -120,28 +121,28 @@ def load_data_from_rundir(rundir: str):
     return data
 
 def compute_errors(data, ref_data):
-    joints = data["actuator_pos"]
-    obj_pos = data["obj_0_xyz_quat"][:, :3]
-    obj_quat = data["obj_0_xyz_quat"][:, -4:]
-    base_pos = data["base_xyz_quat"][:, :3]
-    base_quat = data["base_xyz_quat"][:, -4:]
+    joints = data[KEY_DOF_POS]
+    obj_pos = data[KEY_OBJECT_POS]
+    obj_quat = data[KEY_OBJECT_ROT]
+    base_pos = data[KEY_ROOT_POS]
+    base_quat = data[KEY_ROOT_ROT]
 
     return {
-        "err_pos_obj": float(compute_obj_pos_error(obj_pos, ref_data["object_pos"])),
-        "err_term_pos_obj": float(compute_term_obj_pos_error(obj_pos, ref_data["object_pos"])),
-        "err_quat_obj": float(compute_obj_quat_error(obj_quat, ref_data["object_rot"])),
-        "err_term_quat_obj": float(compute_term_obj_quat_error(obj_quat, ref_data["object_rot"])),
-        "err_pos_base": float(compute_base_pos_error(base_pos, ref_data["root_pos"])),
-        "err_term_pos_base": float(compute_term_base_pos_error(base_pos, ref_data["root_pos"])),
-        "err_quat_base": float(compute_base_quat_error(base_quat, ref_data["root_rot"])),
-        "err_term_quat_base": float(compute_term_base_quat_error(base_quat, ref_data["root_rot"])),
-        "err_joint": float(compute_joint_pos_error(joints, ref_data["dof_pos"])),
+        "err_pos_obj": float(compute_obj_pos_error(obj_pos, ref_data[KEY_OBJECT_POS])),
+        "err_term_pos_obj": float(compute_term_obj_pos_error(obj_pos, ref_data[KEY_OBJECT_POS])),
+        "err_quat_obj": float(compute_obj_quat_error(obj_quat, ref_data[KEY_OBJECT_ROT])),
+        "err_term_quat_obj": float(compute_term_obj_quat_error(obj_quat, ref_data[KEY_OBJECT_ROT])),
+        "err_pos_base": float(compute_base_pos_error(base_pos, ref_data[KEY_ROOT_POS])),
+        "err_term_pos_base": float(compute_term_base_pos_error(base_pos, ref_data[KEY_ROOT_POS])),
+        "err_quat_base": float(compute_base_quat_error(base_quat, ref_data[KEY_ROOT_ROT])),
+        "err_term_quat_base": float(compute_term_base_quat_error(base_quat, ref_data[KEY_ROOT_ROT])),
+        "err_joint": float(compute_joint_pos_error(joints, ref_data[KEY_DOF_POS])),
     }
 
 def compute_smoothness(data, ref_data):
     act_acc, act_acc_ref = compute_total_act_acc(
-        data["actuator_pos"],
-        ref_data["dof_pos"],
+        data[KEY_DOF_POS],
+        ref_data[KEY_DOF_POS],
         ref_data["dt"]
         )
     act_acc_ratio = act_acc / act_acc_ref
@@ -168,8 +169,8 @@ def compute_all_stats(rundir, cfg, ref_data):
         "ref_filename": ref_filename,
         "motion_path": motion_path,
         "rundir": rundir,
-        "T": len(data["time"]),
-        "min_cost": data["c"],
+        "T": len(data[KEY_TIME]),
+        "min_cost": data[KEY_COST],
         "dt": ref_data["dt"]
     }
 
