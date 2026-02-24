@@ -1,9 +1,16 @@
 _target_: sbto.tasks.task_mj_ref.ConfigRefMotion
+# Path of the motion (.npz)
 motion_path: ./sbto/tasks/g1/motion/sub3_largebox_005_original.npz
+# Start time
 t0: 0.
+# End time
 t_end: 0.
+# Speedup
 speedup: 1.0
+# z offset on the base and object
 z_offset: 0.0
+# If free joint are expressed in [quat, pos] format
+# (like OmniRetarget)
 flip_quat_pos: True
+# If quaternion are expressed in [qw, qx, qy, qz] format
 quat_wxyz: True
-override_T_sim: True
