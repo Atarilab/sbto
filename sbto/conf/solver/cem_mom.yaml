@@ -3,10 +3,11 @@ cfg:
   _target_: sbto.solvers.cem_mom.ConfigCEMM
   N_samples: 1024
   N_it: 100
-  elite_frac: 0.04
-  keep_frac: 0.03
+  elite_frac: 0.08
+  keep_frac: 0.0
   min_std_collapsed: 0.001
   gamma: 0.45
+  tau: 0.025
   std_incr: 0.0
   sigma0: 0.25
   quasi_random: False

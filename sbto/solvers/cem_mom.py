@@ -18,6 +18,7 @@ class ConfigCEMM(ConfigSolver):
     """
     elite_frac: float = 0.05
     gamma: float = 0.9
+    tau: float = 0.0
     std_incr: float = 0.
     keep_frac: float = 0.
     min_std_collapsed: float = 0.
@@ -38,6 +39,14 @@ class CEMM(SamplingBasedSolver):
         self.samples = np.zeros((cfg.N_samples, D))
         eps = 1e-8
         self.gamma = np.clip(self.cfg.gamma, -1. + eps, 1. - eps)
+        self.tau = float(self.cfg.tau)
+        denom = 1. + self.gamma - 2. * self.tau
+        if denom <= eps:
+            raise ValueError(
+                "Invalid CEMM hyperparameters: require 1 + gamma - 2 * tau > 0 "
+                f"(got gamma={self.gamma}, tau={self.tau})."
+            )
+        self.inv_cov_update_denom = 1. / denom
 
     def get_samples(self) -> Array:
         """
@@ -70,6 +79,7 @@ class CEMM(SamplingBasedSolver):
         elites = samples[elites_idx]
         return elites, elites_idx
     
+    
     def update_distrib_param(self, state: SolverState, elites: Array) -> None:
 
         mean = np.mean(elites, axis=0)
@@ -83,9 +93,11 @@ class CEMM(SamplingBasedSolver):
         if self.reg_cov:
             cov += self.Id
 
-        state.cov[s, s] = cov[s, s] - self.gamma / (1. + self.gamma) * (cov[s, s] - state.cov[s, s])
+        state.cov[s, s] = cov[s, s] - self.inv_cov_update_denom * (
+            self.gamma * (cov[s, s] - state.cov[s, s]) - 2 * self.tau * cov[s, s]
+        )
         # state.cov[s, s] = 1.0 / (1.0 - self.tau) * cov[s, s]
-
+    
     def update(self,
                samples: Array,
                costs: Array,
